@@ -136,7 +136,9 @@ def run_scraper(
 
     if not dry_run:
         rows = [p.to_db_row() for p in result.products]
-        db.replace_deals_for_dispensary(result.dispensary_id, rows)
+        # Only replace deals if scrape succeeded — don't wipe existing data on failure
+        if result.success:
+            db.replace_deals_for_dispensary(result.dispensary_id, rows)
         db.log_scrape(
             dispensary_id=result.dispensary_id,
             status=status,
