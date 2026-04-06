@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import Header        from '@/components/Header';
 import WeightSelector from '@/components/WeightSelector';
 import CategoryCard  from '@/components/CategoryCard';
-import DealModal     from '@/components/DealModal';
-import type { Deal, DealsResponse, WeightKey } from '@/lib/types';
+import type { DealsResponse, WeightKey } from '@/lib/types';
 
 const CATEGORIES = ['cheapest', 'budget20', 'highestThc'] as const;
 
@@ -14,7 +13,6 @@ export default function Home() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
   const [weight,   setWeight]   = useState<WeightKey>('3.5');
-  const [selected, setSelected] = useState<Deal | null>(null);
 
   useEffect(() => {
     fetch('/api/deals')
@@ -38,7 +36,7 @@ export default function Home() {
         flexDirection:  'column',
         gap:            16,
       }}>
-        <span style={{ fontSize: 40 }}>🌿</span>
+        <span style={{ fontSize: 40 }}>ð¿</span>
         <div style={{ color: '#2a5a2a', fontFamily: 'monospace', letterSpacing: 3, fontSize: 12 }}>
           LOADING DEALS...
         </div>
@@ -59,7 +57,7 @@ export default function Home() {
         padding:        20,
         textAlign:      'center',
       }}>
-        <span style={{ fontSize: 40 }}>⚠️</span>
+        <span style={{ fontSize: 40 }}>â ï¸</span>
         <div style={{ color: '#4ade80', fontFamily: 'monospace', fontSize: 14 }}>
           Could not load deals right now.
         </div>
@@ -104,7 +102,6 @@ export default function Home() {
                 catKey={cat}
                 deal={currentDeals[cat]}
                 weight={weight}
-                onSelect={setSelected}
               />
             ))
           : (
@@ -117,19 +114,11 @@ export default function Home() {
 
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <div style={{ fontSize: 9, color: '#182818', fontFamily: 'monospace', lineHeight: 2.2, letterSpacing: 1 }}>
-          THEBUDBOARD.COM · FOR MEDICAL PATIENTS ONLY<br />
+          THEBUDBOARD.COM Â· FOR MEDICAL PATIENTS ONLY<br />
           PURCHASES MADE DIRECTLY WITH DISPENSARIES<br />
-          NOT AFFILIATED WITH ANY DISPENSARY · DEALS UPDATED EVERY 3 HOURS
+          NOT AFFILIATED WITH ANY DISPENSARY Â· DEALS UPDATED EVERY 3 HOURS
         </div>
       </div>
-
-      {selected && (
-        <DealModal
-          deal={selected}
-          weight={weight}
-          onClose={() => setSelected(null)}
-        />
-      )}
     </div>
   );
 }
