@@ -23,9 +23,21 @@ JANE_API_BASE = "https://api.iheartjane.com/v1"
 MENU_URL      = "https://muvfl.com/locations/ocala"
 
 _HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; TheBudBoard-Scraper/1.0)",
-    "Accept":     "application/json",
-    "Referer":    "https://muvfl.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept":             "application/json, text/plain, */*",
+    "Accept-Language":    "en-US,en;q=0.9",
+    "Origin":             "https://muvfl.com",
+    "Referer":            "https://muvfl.com/",
+    "sec-ch-ua":          '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    "sec-ch-ua-mobile":   "?0",
+    "sec-ch-ua-platform": '"macOS"',
+    "sec-fetch-dest":     "empty",
+    "sec-fetch-mode":     "cors",
+    "sec-fetch-site":     "cross-site",
 }
 
 _WEIGHT_MAP: dict[str, float] = {
