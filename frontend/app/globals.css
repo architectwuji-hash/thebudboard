@@ -1,0 +1,23 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background:  #080e08;
+  color:       #d4f5d4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* Prevent iOS blue highlight on tapped buttons */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Thin custom scrollbar for the page */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: #080e08; }
+::-webkit-scrollbar-thumb { background: #1e3a1e; border-radius: 4px; }

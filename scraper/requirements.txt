@@ -1,0 +1,9 @@
+# TheBudBoard scraper dependencies
+requests==2.31.0
+supabase==2.4.6
+python-dotenv==1.0.1
+APScheduler==3.10.4
+
+# Playwright for Curaleaf (SweedPOS renders products client-side)
+# After pip install, run:  playwright install chromium
+playwright==1.44.0

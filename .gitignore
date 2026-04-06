@@ -1,0 +1,18 @@
+# Node
+node_modules/
+.next/
+dist/
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
