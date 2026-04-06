@@ -3,9 +3,9 @@
 import type { Deal, CategoryKey } from '@/lib/types';
 
 const CATEGORIES: Record<CategoryKey, { icon: string; label: string; sub: string }> = {
-  cheapest:   { icon: '💵', label: 'Cheapest',      sub: 'Lowest price, period'       },
-  budget20:   { icon: '⚡', label: 'Cheapest 20%+', sub: 'Budget · min 20% THC'       },
-  highestThc: { icon: '🔥', label: 'Highest THC',   sub: 'Max potency available'      },
+  cheapest:   { icon: '💵', label: 'Cheapest',     sub: 'Lowest price, period'    },
+  budget20:   { icon: '⚡', label: 'Cheapest 20%+', sub: 'Budget · min 20% THC'   },
+  highestThc: { icon: '🔥', label: 'Highest THC',  sub: 'Max potency available'   },
 };
 
 const EFFECT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -26,38 +26,56 @@ const STRAIN_COLORS: Record<string, { color: string; icon: string }> = {
 };
 
 interface Props {
-  catKey:   CategoryKey;
-  deal:     Deal;
-  weight:   string;
-  onSelect: (deal: Deal) => void;
+  catKey: CategoryKey;
+  deal:   Deal;
+  weight: string;
 }
 
-export default function CategoryCard({ catKey, deal, weight, onSelect }: Props) {
+export default function CategoryCard({ catKey, deal, weight }: Props) {
   const cat = CATEGORIES[catKey];
   const ec  = EFFECT_COLORS[deal.effect] ?? EFFECT_COLORS.Relaxing;
-  const sc  = STRAIN_COLORS[deal.strain]  ?? STRAIN_COLORS.Unknown;
+  const sc  = STRAIN_COLORS[deal.strain] ?? STRAIN_COLORS.Unknown;
   const ppg = (deal.price / Number(weight)).toFixed(2);
+
+  const mapsUrl = deal.address
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(deal.address)}`
+    : `https://www.google.com/maps/search/${encodeURIComponent(deal.dispensary + ' Ocala FL')}`;
+  const orderUrl = deal.productUrl ?? '#';
+
+  const btnStyle: React.CSSProperties = {
+    flex: 1,
+    padding: '11px 8px',
+    borderRadius: 10,
+    border: '1px solid #2a5a2a',
+    background: '#0f1f0f',
+    color: '#4ade80',
+    fontWeight: 700,
+    fontSize: 11,
+    cursor: 'pointer',
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    textDecoration: 'none',
+    textAlign: 'center',
+    display: 'block',
+  };
 
   return (
     <div style={{
-      background:   'linear-gradient(160deg, #0f1a0f, #080e08)',
+      background: 'linear-gradient(160deg, #0f1a0f, #080e08)',
       borderRadius: 18,
-      padding:      '18px',
+      padding: '18px',
       marginBottom: 12,
-      border:       '1px solid #182818',
-      boxShadow:    '0 4px 20px rgba(0,0,0,0.5)',
+      border: '1px solid #182818',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
     }}>
       {/* Category label */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
         <span style={{ fontSize: 14 }}>{cat.icon}</span>
         <div>
           <div style={{
-            fontSize:      11,
-            fontWeight:    800,
-            color:         '#4ade80',
-            fontFamily:    'monospace',
-            letterSpacing: 2,
-            textTransform: 'uppercase',
+            fontSize: 11, fontWeight: 800, color: '#4ade80',
+            fontFamily: 'monospace', letterSpacing: 2, textTransform: 'uppercase',
           }}>
             {cat.label}
           </div>
@@ -78,19 +96,20 @@ export default function CategoryCard({ catKey, deal, weight, onSelect }: Props) 
             </span>
           </div>
           <div style={{
-            fontSize:   18,
-            fontWeight: 800,
-            color:      '#d4f5d4',
-            fontFamily: "'Georgia', serif",
-            lineHeight: 1.2,
+            fontSize: 18, fontWeight: 800, color: '#d4f5d4',
+            fontFamily: "'Georgia', serif", lineHeight: 1.2,
           }}>
             {deal.name}
           </div>
           <div style={{ fontSize: 11, color: '#2a4a2a', fontFamily: 'monospace', marginTop: 2 }}>
             {deal.dispensary}
           </div>
+          {deal.address && (
+            <div style={{ fontSize: 9, color: '#2a4a2a', fontFamily: 'monospace', marginTop: 1 }}>
+              📍 {deal.address}
+            </div>
+          )}
         </div>
-
         <div style={{ textAlign: 'right', marginLeft: 12 }}>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#4ade80', fontFamily: 'monospace', lineHeight: 1 }}>
             ${deal.price}
@@ -107,48 +126,28 @@ export default function CategoryCard({ catKey, deal, weight, onSelect }: Props) 
       {/* Effect + Terpene tags */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         <span style={{
-          background:   ec.bg,
-          color:        ec.text,
-          border:       `1px solid ${ec.border}`,
-          padding:      '3px 9px',
-          borderRadius: 20,
-          fontSize:     10,
-          fontFamily:   'monospace',
+          background: ec.bg, color: ec.text, border: `1px solid ${ec.border}`,
+          padding: '3px 9px', borderRadius: 20, fontSize: 10, fontFamily: 'monospace',
         }}>
           {deal.effect}
         </span>
         <span style={{
-          background:   '#0f1a0f',
-          color:        '#2a5a2a',
-          border:       '1px solid #182818',
-          padding:      '3px 9px',
-          borderRadius: 20,
-          fontSize:     10,
-          fontFamily:   'monospace',
+          background: '#0f1a0f', color: '#2a5a2a', border: '1px solid #182818',
+          padding: '3px 9px', borderRadius: 20, fontSize: 10, fontFamily: 'monospace',
         }}>
           🌱 {deal.terp}
         </span>
       </div>
 
-      <button
-        onClick={() => onSelect(deal)}
-        style={{
-          width:         '100%',
-          padding:       '12px',
-          borderRadius:  10,
-          border:        '1px solid #2a5a2a',
-          background:    '#0f1f0f',
-          color:         '#4ade80',
-          fontWeight:    700,
-          fontSize:      12,
-          cursor:        'pointer',
-          fontFamily:    'monospace',
-          letterSpacing: 2,
-          textTransform: 'uppercase',
-        }}
-      >
-        Get Deal Info →
-      </button>
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={btnStyle}>
+          📍 Directions
+        </a>
+        <a href={orderUrl} target="_blank" rel="noopener noreferrer" style={btnStyle}>
+          🛒 Order Online
+        </a>
+      </div>
     </div>
   );
 }
