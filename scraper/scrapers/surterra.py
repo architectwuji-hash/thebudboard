@@ -23,9 +23,21 @@ JANE_API_BASE = "https://api.iheartjane.com/v1"
 MENU_URL      = "https://menu.surterra.com/ocala/menu?root_types=flower"
 
 _HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; TheBudBoard-Scraper/1.0)",
-    "Accept":     "application/json",
-    "Referer":    "https://menu.surterra.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept":             "application/json, text/plain, */*",
+    "Accept-Language":    "en-US,en;q=0.9",
+    "Origin":             "https://menu.surterra.com",
+    "Referer":            "https://menu.surterra.com/",
+    "sec-ch-ua":          '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    "sec-ch-ua-mobile":   "?0",
+    "sec-ch-ua-platform": '"macOS"',
+    "sec-fetch-dest":     "empty",
+    "sec-fetch-mode":     "cors",
+    "sec-fetch-site":     "cross-site",
 }
 
 # Jane weight/unit label → grams
