@@ -45,6 +45,12 @@ def replace_deals_for_dispensary(dispensary_id: str, rows: list[dict]) -> int:
     """
     client = get_client()
 
+    # Remove deal_notifications FK references first, then delete deals
+    existing = client.table("flower_deals").select("id").eq("dispensary_id", dispensary_id).execute()
+    deal_ids = [d["id"] for d in (existing.data or [])]
+    if deal_ids:
+        client.table("deal_notifications").delete().in_("deal_id", deal_ids).execute()
+
     # Delete existing deals for this dispensary
     client.table("flower_deals").delete().eq("dispensary_id", dispensary_id).execute()
 
