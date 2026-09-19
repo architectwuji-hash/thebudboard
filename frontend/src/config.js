@@ -157,6 +157,8 @@ export const CONFIG = {
       width: 72,
       height: 36,
       margin: 16,
+      /** Space below wave/score badges before the shop button. */
+      gapBelowPoints: 8,
       font: '700 14px system-ui, sans-serif',
       fill: 'rgba(15, 23, 42, 0.9)',
       stroke: 'rgba(148, 163, 184, 0.55)',

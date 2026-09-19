@@ -6,6 +6,7 @@ import {
   listShopPowerIds,
   getPowerDefinition,
 } from './shop.js';
+import { computeTopHudLayout } from './hudLayout.js';
 
 /**
  * All canvas drawing lives in this module — one function per entity / UI piece.
@@ -226,55 +227,10 @@ function drawHudBadge(ctx, text, centerX, y) {
   return { badgeWidth, badgeHeight };
 }
 
-function measureLeftHudWidth(ctx, base, player) {
-  const { baseLabel, playerLabel, font } = CONFIG.HUD;
-  ctx.font = font;
-  const baseLine = `${baseLabel}: ${Math.round(base.hp)}`;
-  const playerLine = `${playerLabel}: ${Math.round(player.hp)}`;
-  return Math.max(ctx.measureText(baseLine).width, ctx.measureText(playerLine).width);
-}
-
-function waveScoreBadgeMetrics(ctx, wave, score) {
-  const { waveLabel, scoreLabel, waveBadgeFont, waveBadgePaddingX } = CONFIG.HUD;
-  const badgeGap = 12;
-  const waveText = `${waveLabel}: ${wave}`;
-  const scoreText = `${scoreLabel}: ${score}`;
-
-  ctx.font = waveBadgeFont;
-  const waveWidth = ctx.measureText(waveText).width + waveBadgePaddingX * 2;
-  const scoreWidth = ctx.measureText(scoreText).width + waveBadgePaddingX * 2;
-  return {
-    badgeGap,
-    waveText,
-    scoreText,
-    waveWidth,
-    scoreWidth,
-    totalWidth: waveWidth + badgeGap + scoreWidth,
-  };
-}
-
 export function drawWaveAndScoreBadges(ctx, wave, score, viewportWidth, base, player) {
-  const { paddingX, paddingY, lineHeight, hudElementGap, hudBadgeRowGap } =
-    CONFIG.HUD;
-  const metrics = waveScoreBadgeMetrics(ctx, wave, score);
-  const { badgeGap, waveText, scoreText, waveWidth, scoreWidth, totalWidth } =
-    metrics;
-
-  const leftBlockRight = paddingX + measureLeftHudWidth(ctx, base, player);
-
-  let badgeY = paddingY;
-  let startX = (viewportWidth - totalWidth) / 2;
-
-  const overlapsLeft = startX < leftBlockRight + hudElementGap;
-  if (overlapsLeft) {
-    startX = Math.max(paddingX, viewportWidth - paddingX - totalWidth);
-  }
-
-  const stillOverlapsLeft = startX < leftBlockRight + hudElementGap;
-  if (stillOverlapsLeft) {
-    badgeY = paddingY + lineHeight * 2 + hudBadgeRowGap;
-    startX = Math.max(paddingX, (viewportWidth - totalWidth) / 2);
-  }
+  const hud = computeTopHudLayout(ctx, viewportWidth, base, player, wave, score);
+  const { metrics, badgeY, startX } = hud;
+  const { badgeGap, waveText, scoreText, waveWidth, scoreWidth } = metrics;
 
   drawHudBadge(ctx, waveText, startX + waveWidth / 2, badgeY);
   drawHudBadge(
@@ -301,8 +257,8 @@ function drawRoundedButton(ctx, rect, label, styles) {
   ctx.fillText(label, rect.x + rect.width / 2, rect.y + rect.height / 2);
 }
 
-export function drawShopButton(ctx, viewportWidth) {
-  const layout = getShopLayout(viewportWidth, ctx.canvas.height);
+export function drawShopButton(ctx, viewportWidth, viewportHeight, gameState) {
+  const layout = getShopLayout(viewportWidth, viewportHeight, ctx, gameState);
   drawRoundedButton(ctx, layout.shopButton, CONFIG.SHOP.button.label, {
     fill: CONFIG.SHOP.button.fill,
     stroke: CONFIG.SHOP.button.stroke,
@@ -337,7 +293,7 @@ export function drawUpgradeBuffIcons(ctx, upgrades, anchorX, anchorY) {
 export function drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight) {
   if (!gameState.shopOpen) return;
 
-  const layout = getShopLayout(viewportWidth, viewportHeight);
+  const layout = getShopLayout(viewportWidth, viewportHeight, ctx, gameState);
   const overlay = CONFIG.SHOP.overlay;
 
   ctx.fillStyle = overlay.dim;
@@ -485,7 +441,7 @@ export function renderFrame(
     CONFIG.HUD.paddingX,
     CONFIG.HUD.paddingY + CONFIG.HUD.lineHeight * 2 + CONFIG.HUD.hudBadgeRowGap + 28,
   );
-  drawShopButton(ctx, viewportWidth);
+  drawShopButton(ctx, viewportWidth, viewportHeight, gameState);
   drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight);
   drawVirtualJoystick(ctx, joystick);
 }
