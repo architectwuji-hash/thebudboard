@@ -49,7 +49,7 @@ export const CONFIG = {
     /** Minimum seconds between auto-shots. */
     fireCooldownSeconds: 0.22,
     /** Max distance to acquire a target for auto-aim (world units). */
-    autoAimRange: 9999,
+    autoAimRange: 260,
   },
 
   BULLET: {
@@ -141,14 +141,22 @@ export const CONFIG = {
         damageBonusPerLevel: 0.1,
         accent: '#f97316',
       },
+      targeting: {
+        name: 'Targeting',
+        shortLabel: 'TG',
+        baseCost: 7,
+        rangeBonusPerLevel: 70,
+        accent: '#2dd4bf',
+      },
       magnet: {
         name: 'Magnet',
         shortLabel: 'MG',
         baseCost: 6,
-        baseRadius: 48,
-        radiusPerLevel: 24,
-        pullSpeed: 280,
-        pullSpeedPerLevel: 40,
+        /** Orb pull radius at level 1; each level adds radiusPerLevel. */
+        baseRadius: 12,
+        radiusPerLevel: 28,
+        pullSpeed: 260,
+        pullSpeedPerLevel: 35,
         accent: '#a78bfa',
       },
     },
@@ -168,7 +176,7 @@ export const CONFIG = {
     overlay: {
       margin: 16,
       panelMaxWidth: 360,
-      panelHeight: 340,
+      panelHeight: 400,
       panelPaddingX: 16,
       headerHeight: 56,
       footerHeight: 56,
