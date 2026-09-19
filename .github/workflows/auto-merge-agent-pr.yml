@@ -1,0 +1,73 @@
+name: Auto-merge agent PR to main
+
+on:
+  workflow_run:
+    workflows: [Frontend build]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              base: 'main',
+              head: `${owner}:${run.head_branch}`,
+            });
+
+            if (prs.length === 0) {
+              core.info(`No open PR from ${run.head_branch} to main`);
+              return;
+            }
+
+            for (const pr of prs) {
+              const head = pr.head.ref;
+              if (!head.startsWith('cursor/')) {
+                core.info(`Skip PR #${pr.number}: head ${head} is not cursor/*`);
+                continue;
+              }
+
+              if (pr.draft) {
+                await github.rest.pulls.update({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  draft: false,
+                });
+                core.info(`Marked PR #${pr.number} ready for review`);
+              }
+
+              await github.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: pr.number,
+                merge_method: 'squash',
+              });
+              core.info(`Squash-merged PR #${pr.number}`);
+
+              try {
+                await github.rest.git.deleteRef({
+                  owner,
+                  repo,
+                  ref: `heads/${head}`,
+                });
+              } catch (error) {
+                core.warning(`Could not delete branch ${head}: ${error.message}`);
+              }
+            }

@@ -4,11 +4,10 @@ Instructions for Cursor Cloud Agents and other automated contributors.
 
 ## Git and deploy
 
-- Work **directly on `main`**. Do **not** open pull requests.
-- Commit in **small, clear messages** and **push to `main`** when the task is done.
-- Pushing to `main` deploys **www.thebudboard.com** via Vercel (`frontend/`, Vite build → `.next`). Apex **thebudboard.com** is on Cloudflare Pages and requires `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` GitHub secrets (and repo variable `CLOUDFLARE_PAGES_DEPLOY=true`) to deploy via `.github/workflows/cloudflare-pages.yml`, or a working Cloudflare Git integration on that project.
-- After **every push**, verify production: `curl -sL https://thebudboard.com` (or fetch the page) and poll every **30 seconds** for up to **10 minutes** until the live HTML reflects your change.
-- If the site does not update, **diagnose and fix** (build output path, broken build, wrong root directory, etc.) and push again. Do **not** ask the human to merge, deploy, or change dashboard settings unless a **login or permission is truly missing** — then state exactly what is needed.
+- Use feature branches named **`cursor/<description>-132c`** and open **pull requests against `main`** (draft is fine).
+- Green **Frontend build** CI triggers **auto-merge** for `cursor/*` PRs; merged **`main`** deploys **thebudboard.com** via Cloudflare Pages (Git integration on `frontend/`, output `.next`). See [DEPLOY.md](DEPLOY.md).
+- After the PR merges, verify production: `curl -sL https://thebudboard.com` and poll every **30 seconds** for up to **10 minutes** until the live HTML reflects your change.
+- If the site does not update, **diagnose and fix** (build failure, wrong output path, Cloudflare settings) and push again. Escalate only when a login or permission is impossible — state exactly what is missing.
 
 ## Game architecture
 

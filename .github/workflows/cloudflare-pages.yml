@@ -1,5 +1,6 @@
-# Deploys repo-root `.next` to Cloudflare Pages when API secrets are configured.
-# Required repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+# Optional: deploy via Wrangler when Git-connected Cloudflare Pages is unavailable.
+# Set repo variable CLOUDFLARE_PAGES_DEPLOY=true and secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
+# Primary path: Cloudflare Git integration builds on push to main (see DEPLOY.md).
 name: Cloudflare Pages
 on:
   workflow_dispatch:
@@ -16,11 +17,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - run: npm run build
+          node-version-file: frontend/.node-version
+      - name: Build Vite game
+        run: cd frontend && npm ci && npm run build
       - name: Publish to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy .next --project-name=thebudboard --branch=main
+          command: pages deploy frontend/.next --project-name=thebudboard --branch=main
