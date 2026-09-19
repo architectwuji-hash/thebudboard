@@ -13,6 +13,7 @@ import {
 
 let nextEnemyId = 1;
 let nextPickupId = 1;
+let nextBulletId = 1;
 
 function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
   const scale = CONFIG.WORLD.viewportScale;
@@ -130,6 +131,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     worldHeight,
     playAreaLeft: 0,
     playAreaRight: worldWidth,
+    time: 0,
   };
 
   syncPlayArea(gameState, viewportWidth);
@@ -181,6 +183,7 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
  * @param {{ axisX: number, axisY: number }} movement — normalized movement, -1..1
  */
 export function updateGameState(state, deltaSeconds, movement) {
+  state.time = (state.time ?? 0) + deltaSeconds;
   if (state.shopOpen) return;
 
   updateSpawns(state, deltaSeconds);
@@ -332,6 +335,7 @@ function spawnBullet(state, aimX, aimY) {
   const spawnOffset = radius + bulletRadius + 2;
 
   state.bullets.push({
+    id: nextBulletId++,
     x: state.player.x + aimX * spawnOffset,
     y: state.player.y + aimY * spawnOffset,
     vx: aimX,

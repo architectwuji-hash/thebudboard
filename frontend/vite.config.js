@@ -6,5 +6,8 @@ export default defineConfig({
   build: {
     outDir: '.next',
     emptyOutDir: true,
+    rollupOptions: {
+      external: [/^three(\/.*)?$/],
+    },
   },
 });

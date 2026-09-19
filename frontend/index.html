@@ -12,9 +12,24 @@
     <meta http-equiv="Expires" content="0" />
     <title>TheBudBoard</title>
     <link rel="stylesheet" href="/src/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
   </head>
   <body>
     <canvas id="game" aria-label="Game canvas"></canvas>
+    <canvas id="ui-overlay" aria-label="Game UI overlay"></canvas>
+    <div id="hud" aria-live="polite">
+      <span id="hud-wave">Wave: 1</span>
+      <span id="hud-score">Score: 0</span>
+      <span id="hud-base-hp">Base HP: 100</span>
+      <span id="hud-player-hp">Player HP: 100</span>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
