@@ -123,6 +123,22 @@ export function drawEnemies(ctx, enemies, wallY) {
   }
 }
 
+export function drawPickups(ctx, pickups, wallY) {
+  const { radius, fill, stroke, strokeWidth } = CONFIG.PICKUP;
+
+  for (const pickup of pickups) {
+    if (pickup.y > wallY) continue;
+
+    ctx.beginPath();
+    ctx.arc(pickup.x, pickup.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = strokeWidth;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+  }
+}
+
 export function drawBullets(ctx, bullets, wallY) {
   const { radius, fill, stroke, strokeWidth } = CONFIG.BULLET;
 
@@ -170,9 +186,8 @@ export function drawHud(ctx, base, player) {
   ctx.shadowBlur = 0;
 }
 
-export function drawWaveBadge(ctx, wave, viewportWidth) {
+function drawHudBadge(ctx, text, centerX, y) {
   const {
-    waveLabel,
     waveBadgeFont,
     waveBadgeFill,
     waveBadgeStroke,
@@ -180,16 +195,13 @@ export function drawWaveBadge(ctx, wave, viewportWidth) {
     waveBadgePaddingX,
     waveBadgePaddingY,
     waveBadgeRadius,
-    paddingY,
   } = CONFIG.HUD;
 
-  const text = `${waveLabel}: ${wave}`;
   ctx.font = waveBadgeFont;
   const textWidth = ctx.measureText(text).width;
   const badgeWidth = textWidth + waveBadgePaddingX * 2;
   const badgeHeight = 16 + waveBadgePaddingY * 2;
-  const x = (viewportWidth - badgeWidth) / 2;
-  const y = paddingY;
+  const x = centerX - badgeWidth / 2;
 
   ctx.fillStyle = waveBadgeFill;
   ctx.strokeStyle = waveBadgeStroke;
@@ -202,7 +214,27 @@ export function drawWaveBadge(ctx, wave, viewportWidth) {
   ctx.fillStyle = waveBadgeText;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, x + badgeWidth / 2, y + badgeHeight / 2);
+  ctx.fillText(text, centerX, y + badgeHeight / 2);
+
+  return badgeWidth;
+}
+
+export function drawWaveAndScoreBadges(ctx, wave, score, viewportWidth) {
+  const { waveLabel, scoreLabel, paddingY } = CONFIG.HUD;
+  const gap = 12;
+  const waveText = `${waveLabel}: ${wave}`;
+  const scoreText = `${scoreLabel}: ${score}`;
+
+  ctx.font = CONFIG.HUD.waveBadgeFont;
+  const waveWidth =
+    ctx.measureText(waveText).width + CONFIG.HUD.waveBadgePaddingX * 2;
+  const scoreWidth =
+    ctx.measureText(scoreText).width + CONFIG.HUD.waveBadgePaddingX * 2;
+  const totalWidth = waveWidth + gap + scoreWidth;
+  const startX = (viewportWidth - totalWidth) / 2;
+
+  drawHudBadge(ctx, waveText, startX + waveWidth / 2, paddingY);
+  drawHudBadge(ctx, scoreText, startX + waveWidth + gap + scoreWidth / 2, paddingY);
 }
 
 /** Optional mobile joystick overlay (drawn only while active). */
@@ -251,11 +283,12 @@ export function renderFrame(
   drawWall(ctx, gameState.wallY, gameState.worldWidth);
   drawBase(ctx, gameState.base);
   drawEnemies(ctx, gameState.enemies, gameState.wallY);
+  drawPickups(ctx, gameState.pickups, gameState.wallY);
   drawBullets(ctx, gameState.bullets, gameState.wallY);
   drawPlayer(ctx, gameState.player);
   ctx.restore();
 
   drawHud(ctx, gameState.base, gameState.player);
-  drawWaveBadge(ctx, gameState.wave, viewportWidth);
+  drawWaveAndScoreBadges(ctx, gameState.wave, gameState.score, viewportWidth);
   drawVirtualJoystick(ctx, joystick);
 }

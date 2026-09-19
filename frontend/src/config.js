@@ -64,6 +64,13 @@ export const CONFIG = {
     cullMargin: 24,
   },
 
+  PICKUP: {
+    radius: 8,
+    fill: '#facc15',
+    stroke: '#ca8a04',
+    strokeWidth: 1,
+  },
+
   ENEMY: {
     radius: 12,
     fill: '#ef4444',
@@ -95,6 +102,7 @@ export const CONFIG = {
     baseLabel: 'Base HP',
     playerLabel: 'Player HP',
     waveLabel: 'Wave',
+    scoreLabel: 'Score',
     font: '600 18px system-ui, sans-serif',
     color: '#e2e8f0',
     shadowColor: 'rgba(0, 0, 0, 0.6)',
