@@ -1,4 +1,10 @@
 import { CONFIG } from './config.js';
+import {
+  createInitialUpgrades,
+  getEffectiveBulletDamage,
+  getEffectiveFireCooldownSeconds,
+  updateMagnetPickups,
+} from './shop.js';
 
 /**
  * Pure game logic — updates state only; never touches the canvas.
@@ -112,6 +118,8 @@ export function createGameState(viewportWidth, viewportHeight) {
     enemies: [],
     pickups: [],
     score: 0,
+    shopOpen: false,
+    upgrades: createInitialUpgrades(),
     wallY,
     wave: 1,
     spawnTimerRemaining: CONFIG.ENEMY.spawnIntervalSeconds,
@@ -172,12 +180,15 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
  * @param {{ axisX: number, axisY: number }} movement — normalized movement, -1..1
  */
 export function updateGameState(state, deltaSeconds, movement) {
+  if (state.shopOpen) return;
+
   updateSpawns(state, deltaSeconds);
 
   const { speed } = CONFIG.PLAYER;
   state.player.x += movement.axisX * speed * deltaSeconds;
   state.player.y += movement.axisY * speed * deltaSeconds;
   clampPlayerToWorld(state);
+  updateMagnetPickups(state, deltaSeconds);
   collectPickups(state);
 
   updateEnemies(state, deltaSeconds);
@@ -286,7 +297,7 @@ function updateAutoCombat(state, deltaSeconds) {
   if (!aim || state.player.fireCooldownRemaining > 0) return;
 
   spawnBullet(state, aim.aimX, aim.aimY);
-  state.player.fireCooldownRemaining = CONFIG.PLAYER.fireCooldownSeconds;
+  state.player.fireCooldownRemaining = getEffectiveFireCooldownSeconds(state);
 }
 
 function findAutoAimTarget(state) {
@@ -328,7 +339,8 @@ function spawnBullet(state, aimX, aimY) {
 }
 
 function updateBullets(state, deltaSeconds) {
-  const { speed, cullMargin, damage, radius: bulletRadius } = CONFIG.BULLET;
+  const { speed, cullMargin, radius: bulletRadius } = CONFIG.BULLET;
+  const damage = getEffectiveBulletDamage(state);
   const maxX = state.worldWidth + cullMargin;
   const maxY = state.worldHeight + cullMargin;
   const min = -cullMargin;

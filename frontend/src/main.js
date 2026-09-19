@@ -6,6 +6,7 @@ import {
 } from './logic.js';
 import { createInputController } from './input.js';
 import { renderFrame } from './render.js';
+import { handleShopPointer } from './shop.js';
 
 /** Cap delta to avoid huge jumps after tab backgrounding. */
 const MAX_DELTA_SECONDS = 0.05;
@@ -16,6 +17,14 @@ const ctx = canvas.getContext('2d');
 const input = createInputController(canvas);
 
 let gameState = createGameState(1, 1);
+
+input.bindShopHandlers({
+  onPointer: (x, y, vw, vh) => handleShopPointer(gameState, x, y, vw, vh),
+});
+
+window.addEventListener('keydown', (e) => {
+  input.handleShopKeys(gameState, e);
+});
 /** CSS-pixel viewport; matches canvas.width / canvas.height after resize. */
 let viewportWidth = 1;
 let viewportHeight = 1;
@@ -49,7 +58,9 @@ function gameLoop(timestamp) {
   );
   lastTimestamp = timestamp;
 
-  const movement = input.getMovementInput();
+  const movement = gameState.shopOpen
+    ? { axisX: 0, axisY: 0 }
+    : input.getMovementInput();
   updateGameState(gameState, deltaSeconds, movement);
 
   const camera = getCamera(gameState, viewportWidth, viewportHeight);
