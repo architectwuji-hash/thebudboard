@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { computeShopButtonRect } from './hudLayout.js';
 
 /** @typedef {{ x: number, y: number, width: number, height: number }} Rect */
 
@@ -120,14 +121,24 @@ export function updateMagnetPickups(state, deltaSeconds) {
  * Layout for shop button and overlay controls (screen space).
  * @returns {{ shopButton: Rect, panel: Rect, rows: Rect[], resumeButton: Rect }}
  */
-export function getShopLayout(viewportWidth, viewportHeight) {
-  const { button, overlay } = CONFIG.SHOP;
-  const shopButton = {
-    x: viewportWidth - button.margin - button.width,
-    y: button.margin,
-    width: button.width,
-    height: button.height,
-  };
+export function getShopLayout(viewportWidth, viewportHeight, ctx, gameState) {
+  const { overlay } = CONFIG.SHOP;
+  const shopButton =
+    ctx && gameState
+      ? computeShopButtonRect(
+          ctx,
+          viewportWidth,
+          gameState.base,
+          gameState.player,
+          gameState.wave,
+          gameState.score,
+        )
+      : {
+          x: viewportWidth - CONFIG.SHOP.button.margin - CONFIG.SHOP.button.width,
+          y: CONFIG.SHOP.button.margin,
+          width: CONFIG.SHOP.button.width,
+          height: CONFIG.SHOP.button.height,
+        };
 
   const panelWidth = Math.min(overlay.panelMaxWidth, viewportWidth - overlay.margin * 2);
   const rowHeight = overlay.rowHeight;
@@ -172,8 +183,15 @@ function pointInRect(x, y, rect) {
  * Handle a screen-space pointer tap (shop toggle, purchases, resume).
  * @returns {boolean} true if the event was consumed by shop UI
  */
-export function handleShopPointer(state, clientX, clientY, viewportWidth, viewportHeight) {
-  const layout = getShopLayout(viewportWidth, viewportHeight);
+export function handleShopPointer(
+  state,
+  clientX,
+  clientY,
+  viewportWidth,
+  viewportHeight,
+  ctx,
+) {
+  const layout = getShopLayout(viewportWidth, viewportHeight, ctx, state);
 
   if (state.shopOpen) {
     if (pointInRect(clientX, clientY, layout.resumeButton)) {

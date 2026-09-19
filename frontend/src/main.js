@@ -19,7 +19,8 @@ const input = createInputController(canvas);
 let gameState = createGameState(1, 1);
 
 input.bindShopHandlers({
-  onPointer: (x, y, vw, vh) => handleShopPointer(gameState, x, y, vw, vh),
+  onPointer: (x, y, vw, vh) =>
+    handleShopPointer(gameState, x, y, vw, vh, ctx),
 });
 
 window.addEventListener('keydown', (e) => {
