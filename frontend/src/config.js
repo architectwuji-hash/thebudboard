@@ -61,6 +61,12 @@ export const CONFIG = {
     hpColor: '#ffffff',
   },
 
+  /** Playfield is larger than the viewport so enemies travel longer before reaching the base. */
+  WORLD: {
+    /** World size = viewport size × this factor (uniform). */
+    viewportScale: 1.45,
+  },
+
   CANVAS: {
     background: '#0f172a',
   },

@@ -128,12 +128,24 @@ export function drawVirtualJoystick(ctx, joystick) {
   ctx.stroke();
 }
 
-export function renderFrame(ctx, width, height, gameState, joystick) {
-  clearCanvas(ctx, width, height);
+export function renderFrame(
+  ctx,
+  viewportWidth,
+  viewportHeight,
+  gameState,
+  camera,
+  joystick,
+) {
+  clearCanvas(ctx, viewportWidth, viewportHeight);
+
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
   drawBase(ctx, gameState.base);
   drawEnemies(ctx, gameState.enemies);
   drawBullets(ctx, gameState.bullets);
   drawPlayer(ctx, gameState.player);
+  ctx.restore();
+
   drawHud(ctx, gameState.base, gameState.player);
   drawVirtualJoystick(ctx, joystick);
 }
