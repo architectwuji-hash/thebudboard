@@ -1,4 +1,11 @@
 import { CONFIG } from './config.js';
+import {
+  getShopLayout,
+  getUpgradeCost,
+  getNextLevelDescription,
+  listShopPowerIds,
+  getPowerDefinition,
+} from './shop.js';
 
 /**
  * All canvas drawing lives in this module — one function per entity / UI piece.
@@ -278,6 +285,140 @@ export function drawWaveAndScoreBadges(ctx, wave, score, viewportWidth, base, pl
   );
 }
 
+function drawRoundedButton(ctx, rect, label, styles) {
+  const { fill, stroke, text, font, radius } = styles;
+  ctx.font = font;
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(rect.x, rect.y, rect.width, rect.height, radius);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = text;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, rect.x + rect.width / 2, rect.y + rect.height / 2);
+}
+
+export function drawShopButton(ctx, viewportWidth) {
+  const layout = getShopLayout(viewportWidth, ctx.canvas.height);
+  drawRoundedButton(ctx, layout.shopButton, CONFIG.SHOP.button.label, {
+    fill: CONFIG.SHOP.button.fill,
+    stroke: CONFIG.SHOP.button.stroke,
+    text: CONFIG.SHOP.button.text,
+    font: CONFIG.SHOP.button.font,
+    radius: CONFIG.SHOP.button.radius,
+  });
+}
+
+export function drawUpgradeBuffIcons(ctx, upgrades, anchorX, anchorY) {
+  const { buffIconSize, buffIconGap, powers } = CONFIG.SHOP;
+  let x = anchorX;
+
+  for (const powerId of listShopPowerIds()) {
+    const level = upgrades[powerId] ?? 0;
+    if (level <= 0) continue;
+
+    const accent = powers[powerId].accent;
+    ctx.beginPath();
+    ctx.arc(x + buffIconSize, anchorY, buffIconSize, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '700 9px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(level), x + buffIconSize, anchorY);
+    x += buffIconSize * 2 + buffIconGap;
+  }
+}
+
+export function drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight) {
+  if (!gameState.shopOpen) return;
+
+  const layout = getShopLayout(viewportWidth, viewportHeight);
+  const overlay = CONFIG.SHOP.overlay;
+
+  ctx.fillStyle = overlay.dim;
+  ctx.fillRect(0, 0, viewportWidth, viewportHeight);
+
+  ctx.fillStyle = overlay.panelFill;
+  ctx.strokeStyle = overlay.panelStroke;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(
+    layout.panel.x,
+    layout.panel.y,
+    layout.panel.width,
+    layout.panel.height,
+    overlay.panelRadius,
+  );
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = overlay.titleColor;
+  ctx.font = overlay.titleFont;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(
+    `Shop — Score: ${gameState.score}`,
+    viewportWidth / 2,
+    layout.panel.y + 16,
+  );
+
+  const powerIds = listShopPowerIds();
+  for (let i = 0; i < powerIds.length; i++) {
+    const powerId = powerIds[i];
+    const power = getPowerDefinition(powerId);
+    const row = layout.rows[i];
+    const level = gameState.upgrades[powerId] ?? 0;
+    const cost = getUpgradeCost(powerId, level);
+    const nextDesc = getNextLevelDescription(powerId, level);
+
+    ctx.fillStyle = overlay.rowFill;
+    ctx.strokeStyle = overlay.rowStroke;
+    ctx.beginPath();
+    ctx.roundRect(row.x, row.y, row.width, row.height, overlay.rowRadius);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = power.accent;
+    ctx.fillRect(row.x, row.y, 4, row.height);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = overlay.rowColor;
+    ctx.font = overlay.rowFont;
+    ctx.fillText(
+      `${power.name}  Lv ${level}/${CONFIG.SHOP.maxLevel}`,
+      row.x + 12,
+      row.y + 8,
+    );
+
+    ctx.fillStyle = overlay.detailColor;
+    ctx.font = overlay.detailFont;
+    const detail =
+      cost === null
+        ? 'Max level reached'
+        : `${nextDesc} — Buy: ${cost} pts`;
+    ctx.fillText(detail, row.x + 12, row.y + 28);
+  }
+
+  drawRoundedButton(
+    ctx,
+    layout.resumeButton,
+    overlay.resumeLabel,
+    {
+      fill: overlay.resumeFill,
+      stroke: 'rgba(21, 128, 61, 0.8)',
+      text: overlay.resumeText,
+      font: '700 15px system-ui, sans-serif',
+      radius: 8,
+    },
+  );
+}
+
 /** Optional mobile joystick overlay (drawn only while active). */
 export function drawVirtualJoystick(ctx, joystick) {
   if (!joystick.active) return;
@@ -338,5 +479,13 @@ export function renderFrame(
     gameState.base,
     gameState.player,
   );
+  drawUpgradeBuffIcons(
+    ctx,
+    gameState.upgrades,
+    CONFIG.HUD.paddingX,
+    CONFIG.HUD.paddingY + CONFIG.HUD.lineHeight * 2 + CONFIG.HUD.hudBadgeRowGap + 28,
+  );
+  drawShopButton(ctx, viewportWidth);
+  drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight);
   drawVirtualJoystick(ctx, joystick);
 }

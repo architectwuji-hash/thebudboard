@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { handleShopPointer, toggleShopOpen } from './shop.js';
 
 /**
  * Keyboard (desktop) + virtual joystick (left half of screen, touch devices).
@@ -30,6 +31,10 @@ export function createInputController(canvas) {
   };
 
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyB' || e.code === 'Escape') {
+      e.preventDefault();
+      return;
+    }
     if (KEY_MAP[e.code]) {
       keysDown.add(e.code);
       e.preventDefault();
@@ -44,6 +49,12 @@ export function createInputController(canvas) {
     'touchstart',
     (e) => {
       for (const touch of e.changedTouches) {
+        if (
+          shopPointerHandler?.(touch.clientX, touch.clientY, canvas.clientWidth, canvas.clientHeight)
+        ) {
+          e.preventDefault();
+          continue;
+        }
         if (isInJoystickZone(touch.clientX, canvas.clientWidth)) {
           activateJoystick(joystick, touch.clientX, touch.clientY);
           e.preventDefault();
@@ -52,6 +63,14 @@ export function createInputController(canvas) {
     },
     { passive: false },
   );
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (
+      shopPointerHandler?.(e.clientX, e.clientY, canvas.clientWidth, canvas.clientHeight)
+    ) {
+      e.preventDefault();
+    }
+  });
 
   canvas.addEventListener(
     'touchmove',
@@ -77,8 +96,26 @@ export function createInputController(canvas) {
   canvas.addEventListener('touchend', endTouch, { passive: false });
   canvas.addEventListener('touchcancel', endTouch, { passive: false });
 
+  let shopPointerHandler = null;
+
   return {
     joystick,
+    bindShopHandlers({ onPointer }) {
+      shopPointerHandler = onPointer;
+    },
+    handleShopKeys(state, e) {
+      if (e.code !== 'KeyB' && e.code !== 'Escape') return false;
+      if (e.type === 'keydown') {
+        if (e.code === 'Escape' && state.shopOpen) {
+          state.shopOpen = false;
+        } else if (e.code === 'KeyB') {
+          toggleShopOpen(state);
+        }
+        e.preventDefault();
+        return true;
+      }
+      return false;
+    },
     getMovementInput() {
       let axisX = 0;
       let axisY = 0;
