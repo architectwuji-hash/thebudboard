@@ -1,0 +1,19 @@
+/* Full-screen game surface: no scroll or pinch-zoom on mobile. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  background: #0f172a;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
