@@ -16,25 +16,28 @@ const ctx = canvas.getContext('2d');
 const input = createInputController(canvas);
 
 let gameState = createGameState(1, 1);
+/** CSS-pixel viewport; matches canvas.width / canvas.height after resize. */
 let viewportWidth = 1;
 let viewportHeight = 1;
 
 function resizeCanvas() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   viewportWidth = window.innerWidth;
   viewportHeight = window.innerHeight;
 
-  canvas.width = Math.floor(viewportWidth * dpr);
-  canvas.height = Math.floor(viewportHeight * dpr);
-  canvas.style.width = `${viewportWidth}px`;
-  canvas.style.height = `${viewportHeight}px`;
+  canvas.width = viewportWidth;
+  canvas.height = viewportHeight;
 
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   resizeGameState(gameState, viewportWidth, viewportHeight);
 }
 
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resizeCanvas);
+  window.visualViewport.addEventListener('scroll', resizeCanvas);
+}
 resizeCanvas();
 
 let lastTimestamp = performance.now();
