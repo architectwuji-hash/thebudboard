@@ -18,6 +18,33 @@ function wallYFromViewport(viewportHeight) {
   return viewportHeight * CONFIG.WALL.yScreenRatio;
 }
 
+function playAreaBounds(viewportWidth) {
+  const { leftRatio, rightRatio } = CONFIG.PLAY_AREA;
+  return {
+    playAreaLeft: viewportWidth * leftRatio,
+    playAreaRight: viewportWidth * rightRatio,
+  };
+}
+
+function syncPlayArea(state, viewportWidth) {
+  const bounds = playAreaBounds(viewportWidth);
+  state.playAreaLeft = bounds.playAreaLeft;
+  state.playAreaRight = bounds.playAreaRight;
+}
+
+function clampXInPlayArea(state, x, radius) {
+  const minX = state.playAreaLeft + radius;
+  const maxX = state.playAreaRight - radius;
+  return Math.min(maxX, Math.max(minX, x));
+}
+
+function clampEnemyPositions(state) {
+  const { radius } = CONFIG.ENEMY;
+  for (const enemy of state.enemies) {
+    enemy.x = clampXInPlayArea(state, enemy.x, radius);
+  }
+}
+
 function playerLaneY(wallY) {
   const { radius, standoffAboveWall } = CONFIG.PLAYER;
   return wallY - radius - standoffAboveWall;
@@ -67,7 +94,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     fireCooldownRemaining: 0,
   };
 
-  return {
+  const gameState = {
     base,
     player,
     bullets: [],
@@ -79,7 +106,18 @@ export function createGameState(viewportWidth, viewportHeight) {
     viewportHeight,
     worldWidth,
     worldHeight,
+    playAreaLeft: 0,
+    playAreaRight: worldWidth,
   };
+
+  syncPlayArea(gameState, viewportWidth);
+  gameState.player.x = clampXInPlayArea(
+    gameState,
+    gameState.player.x,
+    CONFIG.PLAYER.radius,
+  );
+
+  return gameState;
 }
 
 /** Re-anchor wall and player lane on resize; shift entities with wall movement. */
@@ -106,7 +144,9 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
   state.worldWidth = worldWidth;
   state.worldHeight = worldHeight;
 
+  syncPlayArea(state, viewportWidth);
   clampPlayerToWorld(state);
+  clampEnemyPositions(state);
 }
 
 /**
@@ -121,6 +161,7 @@ export function updateGameState(state, deltaSeconds, movement) {
   clampPlayerToWorld(state);
 
   updateEnemies(state, deltaSeconds);
+  clampEnemyPositions(state);
   resolveEnemyWallBreaches(state);
   resolveEnemyPlayerContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
@@ -138,8 +179,8 @@ function updateSpawns(state, deltaSeconds) {
 
 function createEnemyAtTopEdge(state) {
   const { radius } = CONFIG.ENEMY;
-  const minX = radius;
-  const maxX = state.worldWidth - radius;
+  const minX = state.playAreaLeft + radius;
+  const maxX = state.playAreaRight - radius;
 
   return {
     id: nextEnemyId++,
@@ -317,10 +358,9 @@ function circlesOverlap(x1, y1, r1, x2, y2, r2) {
 
 function clampPlayerToWorld(state) {
   const r = CONFIG.PLAYER.radius;
-  const maxX = state.worldWidth - r;
   const laneY = playerLaneY(state.wallY);
   const minY = r;
 
-  state.player.x = Math.min(maxX, Math.max(r, state.player.x));
+  state.player.x = clampXInPlayArea(state, state.player.x, r);
   state.player.y = Math.min(laneY, Math.max(minY, state.player.y));
 }

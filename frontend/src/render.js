@@ -10,6 +10,29 @@ export function clearCanvas(ctx, width, height) {
   ctx.fillRect(0, 0, width, height);
 }
 
+export function drawPlayAreaCorridor(
+  ctx,
+  viewportWidth,
+  viewportHeight,
+  playAreaLeft,
+  playAreaRight,
+) {
+  const { gutterFill, edgeLineColor, edgeLineWidth } = CONFIG.PLAY_AREA;
+
+  ctx.fillStyle = gutterFill;
+  ctx.fillRect(0, 0, playAreaLeft, viewportHeight);
+  ctx.fillRect(playAreaRight, 0, viewportWidth - playAreaRight, viewportHeight);
+
+  ctx.strokeStyle = edgeLineColor;
+  ctx.lineWidth = edgeLineWidth;
+  ctx.beginPath();
+  ctx.moveTo(playAreaLeft, 0);
+  ctx.lineTo(playAreaLeft, viewportHeight);
+  ctx.moveTo(playAreaRight, 0);
+  ctx.lineTo(playAreaRight, viewportHeight);
+  ctx.stroke();
+}
+
 export function drawProtectedZone(ctx, viewportWidth, viewportHeight, wallY) {
   const { halfHeight } = CONFIG.WALL;
   const top = wallY + halfHeight;
@@ -199,6 +222,13 @@ export function renderFrame(
 
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
+  drawPlayAreaCorridor(
+    ctx,
+    viewportWidth,
+    viewportHeight,
+    gameState.playAreaLeft,
+    gameState.playAreaRight,
+  );
   drawProtectedZone(ctx, viewportWidth, viewportHeight, gameState.wallY);
   drawWall(ctx, gameState.wallY, gameState.worldWidth);
   drawEnemies(ctx, gameState.enemies, gameState.wallY);

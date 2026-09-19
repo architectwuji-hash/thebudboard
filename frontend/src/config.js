@@ -5,6 +5,17 @@
 export const CONFIG = {
   BASE: {
     maxHp: 100,
+    /** Legacy layout reference; wall TD uses WALL for defense line. */
+    radius: 45,
+  },
+
+  /** Horizontal corridor for gameplay entities (fractions of viewport width). */
+  PLAY_AREA: {
+    leftRatio: 0.12,
+    rightRatio: 0.88,
+    gutterFill: '#0a0e14',
+    edgeLineColor: 'rgba(148, 163, 184, 0.35)',
+    edgeLineWidth: 1,
   },
 
   WALL: {
@@ -22,7 +33,7 @@ export const CONFIG = {
   },
 
   PLAYER: {
-    radius: 22,
+    radius: 14,
     fill: '#22c55e',
     stroke: '#bbf7d0',
     strokeWidth: 2,
@@ -50,7 +61,7 @@ export const CONFIG = {
   },
 
   ENEMY: {
-    radius: 18,
+    radius: 12,
     fill: '#ef4444',
     stroke: '#fecaca',
     strokeWidth: 2,
@@ -62,7 +73,7 @@ export const CONFIG = {
     /** Seconds before the same enemy can damage the player again. */
     contactCooldownSeconds: 0.85,
     spawnIntervalSeconds: 2.4,
-    hpFont: 'bold 14px system-ui, sans-serif',
+    hpFont: 'bold 11px system-ui, sans-serif',
     hpColor: '#ffffff',
   },
 
