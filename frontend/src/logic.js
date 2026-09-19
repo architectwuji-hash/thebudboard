@@ -14,24 +14,30 @@ function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
   };
 }
 
-function basePosition(worldWidth, worldHeight) {
-  const { radius, bottomPadding } = CONFIG.BASE;
+function wallYFromViewport(viewportHeight) {
+  return viewportHeight * CONFIG.WALL.yScreenRatio;
+}
+
+function playerLaneY(wallY) {
+  const { radius, standoffAboveWall } = CONFIG.PLAYER;
+  return wallY - radius - standoffAboveWall;
+}
+
+function playerStartPosition(worldWidth, wallY) {
   return {
     x: worldWidth / 2,
-    y: worldHeight - radius - bottomPadding,
+    y: playerLaneY(wallY),
   };
 }
 
-function playerStartPosition(base) {
-  const { radius: baseRadius } = CONFIG.BASE;
-  const { radius: playerRadius, startGapFromBase } = CONFIG.PLAYER;
+function wallTargetPoint(state) {
   return {
-    x: base.x + baseRadius + playerRadius + startGapFromBase,
-    y: base.y,
+    x: state.worldWidth / 2,
+    y: state.wallY,
   };
 }
 
-/** Camera top-left in world space; keeps the player near the center of the view. */
+/** Camera top-left in world space; fixed when world matches viewport. */
 export function getCamera(state, viewportWidth, viewportHeight) {
   const maxX = Math.max(0, state.worldWidth - viewportWidth);
   const maxY = Math.max(0, state.worldHeight - viewportHeight);
@@ -47,15 +53,15 @@ export function createGameState(viewportWidth, viewportHeight) {
     viewportWidth,
     viewportHeight,
   );
+  const wallY = wallYFromViewport(viewportHeight);
 
   const base = {
-    ...basePosition(worldWidth, worldHeight),
     hp: CONFIG.BASE.maxHp,
     maxHp: CONFIG.BASE.maxHp,
   };
 
   const player = {
-    ...playerStartPosition(base),
+    ...playerStartPosition(worldWidth, wallY),
     hp: CONFIG.PLAYER.maxHp,
     maxHp: CONFIG.PLAYER.maxHp,
     fireCooldownRemaining: 0,
@@ -66,6 +72,8 @@ export function createGameState(viewportWidth, viewportHeight) {
     player,
     bullets: [],
     enemies: [],
+    wallY,
+    wave: 1,
     spawnTimerRemaining: CONFIG.ENEMY.spawnIntervalSeconds,
     viewportWidth,
     viewportHeight,
@@ -74,28 +82,22 @@ export function createGameState(viewportWidth, viewportHeight) {
   };
 }
 
-/** Re-anchor base to bottom-center on resize; preserve offsets for entities. */
+/** Re-anchor wall and player lane on resize; shift entities with wall movement. */
 export function resizeGameState(state, viewportWidth, viewportHeight) {
   const { worldWidth, worldHeight } = worldDimensionsFromViewport(
     viewportWidth,
     viewportHeight,
   );
+  const newWallY = wallYFromViewport(viewportHeight);
+  const dy = newWallY - state.wallY;
 
-  const anchoredBase = basePosition(worldWidth, worldHeight);
-  const dx = anchoredBase.x - state.base.x;
-  const dy = anchoredBase.y - state.base.y;
-
-  state.base.x = anchoredBase.x;
-  state.base.y = anchoredBase.y;
-  state.player.x += dx;
+  state.wallY = newWallY;
   state.player.y += dy;
 
   for (const enemy of state.enemies) {
-    enemy.x += dx;
     enemy.y += dy;
   }
   for (const bullet of state.bullets) {
-    bullet.x += dx;
     bullet.y += dy;
   }
 
@@ -119,7 +121,8 @@ export function updateGameState(state, deltaSeconds, movement) {
   clampPlayerToWorld(state);
 
   updateEnemies(state, deltaSeconds);
-  resolveEnemyContactDamage(state, deltaSeconds);
+  resolveEnemyWallBreaches(state);
+  resolveEnemyPlayerContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
   updateBullets(state, deltaSeconds);
 }
@@ -128,29 +131,32 @@ function updateSpawns(state, deltaSeconds) {
   state.spawnTimerRemaining -= deltaSeconds;
   while (state.spawnTimerRemaining <= 0) {
     state.enemies.push(createEnemyAtTopEdge(state));
+    state.wave += 1;
     state.spawnTimerRemaining += CONFIG.ENEMY.spawnIntervalSeconds;
   }
 }
 
 function createEnemyAtTopEdge(state) {
   const { radius } = CONFIG.ENEMY;
+  const minX = radius;
+  const maxX = state.worldWidth - radius;
 
   return {
     id: nextEnemyId++,
-    x: Math.random() * state.worldWidth,
+    x: minX + Math.random() * (maxX - minX),
     y: -radius,
     hp: CONFIG.ENEMY.maxHp,
     maxHp: CONFIG.ENEMY.maxHp,
-    baseContactCooldown: 0,
     playerContactCooldown: 0,
   };
 }
 
 function updateEnemies(state, deltaSeconds) {
   const { speed } = CONFIG.ENEMY;
+  const wallPoint = wallTargetPoint(state);
 
   for (const enemy of state.enemies) {
-    const target = pickEnemyTarget(state, enemy);
+    const target = pickEnemyTarget(state, enemy, wallPoint);
     const dx = target.x - enemy.x;
     const dy = target.y - enemy.y;
     const dist = Math.hypot(dx, dy);
@@ -163,43 +169,34 @@ function updateEnemies(state, deltaSeconds) {
   }
 }
 
-/** Move toward whichever of base or player is closer. */
-function pickEnemyTarget(state, enemy) {
-  const toBase = Math.hypot(state.base.x - enemy.x, state.base.y - enemy.y);
+/** Move toward whichever of the wall center or player is closer. */
+function pickEnemyTarget(state, enemy, wallPoint) {
+  const toWall = Math.hypot(wallPoint.x - enemy.x, wallPoint.y - enemy.y);
   const toPlayer = Math.hypot(state.player.x - enemy.x, state.player.y - enemy.y);
-  return toPlayer < toBase ? state.player : state.base;
+  return toPlayer < toWall ? state.player : wallPoint;
 }
 
-function resolveEnemyContactDamage(state, deltaSeconds) {
+function resolveEnemyWallBreaches(state) {
+  const { radius, contactDamage } = CONFIG.ENEMY;
+  const breachY = state.wallY - radius;
+
+  state.enemies = state.enemies.filter((enemy) => {
+    if (enemy.y < breachY) return true;
+    state.base.hp = Math.max(0, state.base.hp - contactDamage);
+    return false;
+  });
+}
+
+function resolveEnemyPlayerContact(state, deltaSeconds) {
   const { radius: enemyRadius, contactDamage, contactCooldownSeconds } =
     CONFIG.ENEMY;
-  const baseRadius = CONFIG.BASE.radius;
   const playerRadius = CONFIG.PLAYER.radius;
 
   for (const enemy of state.enemies) {
-    enemy.baseContactCooldown = Math.max(
-      0,
-      enemy.baseContactCooldown - deltaSeconds,
-    );
     enemy.playerContactCooldown = Math.max(
       0,
       enemy.playerContactCooldown - deltaSeconds,
     );
-
-    if (
-      circlesOverlap(
-        enemy.x,
-        enemy.y,
-        enemyRadius,
-        state.base.x,
-        state.base.y,
-        baseRadius,
-      ) &&
-      enemy.baseContactCooldown <= 0
-    ) {
-      state.base.hp = Math.max(0, state.base.hp - contactDamage);
-      enemy.baseContactCooldown = contactCooldownSeconds;
-    }
 
     if (
       circlesOverlap(
@@ -321,8 +318,9 @@ function circlesOverlap(x1, y1, r1, x2, y2, r2) {
 function clampPlayerToWorld(state) {
   const r = CONFIG.PLAYER.radius;
   const maxX = state.worldWidth - r;
-  const maxY = state.worldHeight - r;
+  const laneY = playerLaneY(state.wallY);
+  const minY = r;
 
   state.player.x = Math.min(maxX, Math.max(r, state.player.x));
-  state.player.y = Math.min(maxY, Math.max(r, state.player.y));
+  state.player.y = Math.min(laneY, Math.max(minY, state.player.y));
 }
