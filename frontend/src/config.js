@@ -6,6 +6,8 @@ export const CONFIG = {
   BASE: {
     maxHp: 100,
     radius: 56,
+    /** Distance from the bottom edge of the playfield to the base center. */
+    bottomPadding: 20,
     fill: '#2563eb',
     stroke: '#93c5fd',
     strokeWidth: 3,
@@ -21,9 +23,8 @@ export const CONFIG = {
     maxHp: 100,
     /** World-units per second. */
     speed: 240,
-    /** Spawn offset from base center (pixels). */
-    startOffsetX: 90,
-    startOffsetY: 0,
+    /** Horizontal gap between base and player at spawn (world units). */
+    startGapFromBase: 5,
     /** Minimum seconds between auto-shots. */
     fireCooldownSeconds: 0.22,
     /** Max distance to acquire a target for auto-aim (world units). */
@@ -55,8 +56,6 @@ export const CONFIG = {
     /** Seconds before the same enemy can damage the same target again. */
     contactCooldownSeconds: 0.85,
     spawnIntervalSeconds: 2.4,
-    /** Padding from world edge when spawning. */
-    spawnEdgePadding: 28,
     hpFont: 'bold 14px system-ui, sans-serif',
     hpColor: '#ffffff',
   },

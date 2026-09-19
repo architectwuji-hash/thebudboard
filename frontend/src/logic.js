@@ -14,6 +14,23 @@ function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
   };
 }
 
+function basePosition(worldWidth, worldHeight) {
+  const { radius, bottomPadding } = CONFIG.BASE;
+  return {
+    x: worldWidth / 2,
+    y: worldHeight - radius - bottomPadding,
+  };
+}
+
+function playerStartPosition(base) {
+  const { radius: baseRadius } = CONFIG.BASE;
+  const { radius: playerRadius, startGapFromBase } = CONFIG.PLAYER;
+  return {
+    x: base.x + baseRadius + playerRadius + startGapFromBase,
+    y: base.y,
+  };
+}
+
 /** Camera top-left in world space; keeps the player near the center of the view. */
 export function getCamera(state, viewportWidth, viewportHeight) {
   const maxX = Math.max(0, state.worldWidth - viewportWidth);
@@ -32,15 +49,13 @@ export function createGameState(viewportWidth, viewportHeight) {
   );
 
   const base = {
-    x: worldWidth / 2,
-    y: worldHeight / 2,
+    ...basePosition(worldWidth, worldHeight),
     hp: CONFIG.BASE.maxHp,
     maxHp: CONFIG.BASE.maxHp,
   };
 
   const player = {
-    x: base.x + CONFIG.PLAYER.startOffsetX,
-    y: base.y + CONFIG.PLAYER.startOffsetY,
+    ...playerStartPosition(base),
     hp: CONFIG.PLAYER.maxHp,
     maxHp: CONFIG.PLAYER.maxHp,
     fireCooldownRemaining: 0,
@@ -59,18 +74,19 @@ export function createGameState(viewportWidth, viewportHeight) {
   };
 }
 
-/** Re-center base in world on resize; preserve offsets for entities. */
+/** Re-anchor base to bottom-center on resize; preserve offsets for entities. */
 export function resizeGameState(state, viewportWidth, viewportHeight) {
   const { worldWidth, worldHeight } = worldDimensionsFromViewport(
     viewportWidth,
     viewportHeight,
   );
 
-  const dx = worldWidth / 2 - state.base.x;
-  const dy = worldHeight / 2 - state.base.y;
+  const anchoredBase = basePosition(worldWidth, worldHeight);
+  const dx = anchoredBase.x - state.base.x;
+  const dy = anchoredBase.y - state.base.y;
 
-  state.base.x = worldWidth / 2;
-  state.base.y = worldHeight / 2;
+  state.base.x = anchoredBase.x;
+  state.base.y = anchoredBase.y;
   state.player.x += dx;
   state.player.y += dy;
 
@@ -111,42 +127,18 @@ export function updateGameState(state, deltaSeconds, movement) {
 function updateSpawns(state, deltaSeconds) {
   state.spawnTimerRemaining -= deltaSeconds;
   while (state.spawnTimerRemaining <= 0) {
-    state.enemies.push(createEnemyAtEdge(state));
+    state.enemies.push(createEnemyAtTopEdge(state));
     state.spawnTimerRemaining += CONFIG.ENEMY.spawnIntervalSeconds;
   }
 }
 
-function createEnemyAtEdge(state) {
-  const { spawnEdgePadding } = CONFIG.ENEMY;
-  const w = state.worldWidth;
-  const h = state.worldHeight;
-  const edge = Math.floor(Math.random() * 4);
-  let x;
-  let y;
-
-  switch (edge) {
-    case 0:
-      x = Math.random() * w;
-      y = spawnEdgePadding;
-      break;
-    case 1:
-      x = w - spawnEdgePadding;
-      y = Math.random() * h;
-      break;
-    case 2:
-      x = Math.random() * w;
-      y = h - spawnEdgePadding;
-      break;
-    default:
-      x = spawnEdgePadding;
-      y = Math.random() * h;
-      break;
-  }
+function createEnemyAtTopEdge(state) {
+  const { radius } = CONFIG.ENEMY;
 
   return {
     id: nextEnemyId++,
-    x,
-    y,
+    x: Math.random() * state.worldWidth,
+    y: -radius,
     hp: CONFIG.ENEMY.maxHp,
     maxHp: CONFIG.ENEMY.maxHp,
     baseContactCooldown: 0,
