@@ -40,12 +40,7 @@ function gameLoop(timestamp) {
   lastTimestamp = timestamp;
 
   const movement = input.getMovementInput();
-  const aim = input.getAimDirection(gameState.player.x, gameState.player.y);
-  updateGameState(gameState, deltaSeconds, movement, {
-    aimX: aim.aimX,
-    aimY: aim.aimY,
-    fire: input.isFireHeld(),
-  });
+  updateGameState(gameState, deltaSeconds, movement);
 
   renderFrame(
     ctx,

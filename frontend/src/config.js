@@ -18,16 +18,16 @@ export const CONFIG = {
     fill: '#22c55e',
     stroke: '#bbf7d0',
     strokeWidth: 2,
+    maxHp: 100,
     /** World-units per second. */
     speed: 240,
     /** Spawn offset from base center (pixels). */
     startOffsetX: 90,
     startOffsetY: 0,
-    /** Minimum seconds between shots while fire is held. */
+    /** Minimum seconds between auto-shots. */
     fireCooldownSeconds: 0.22,
-    /** Aim direction when pointer is unavailable (unit vector). */
-    defaultAimX: 1,
-    defaultAimY: 0,
+    /** Max distance to acquire a target for auto-aim (world units). */
+    autoAimRange: 9999,
   },
 
   BULLET: {
@@ -37,8 +37,28 @@ export const CONFIG = {
     strokeWidth: 1,
     /** World-units per second. */
     speed: 520,
+    damage: 34,
     /** Extra margin beyond world bounds before removing a bullet. */
     cullMargin: 24,
+  },
+
+  ENEMY: {
+    radius: 18,
+    fill: '#ef4444',
+    stroke: '#fecaca',
+    strokeWidth: 2,
+    maxHp: 68,
+    /** World-units per second toward base or player (whichever is closer). */
+    speed: 95,
+    /** Damage applied on touch (per cooldown window). */
+    contactDamage: 12,
+    /** Seconds before the same enemy can damage the same target again. */
+    contactCooldownSeconds: 0.85,
+    spawnIntervalSeconds: 2.4,
+    /** Padding from world edge when spawning. */
+    spawnEdgePadding: 28,
+    hpFont: 'bold 14px system-ui, sans-serif',
+    hpColor: '#ffffff',
   },
 
   CANVAS: {
@@ -46,12 +66,14 @@ export const CONFIG = {
   },
 
   HUD: {
-    label: 'Base HP',
+    baseLabel: 'Base HP',
+    playerLabel: 'Player HP',
     font: '600 18px system-ui, sans-serif',
     color: '#e2e8f0',
     shadowColor: 'rgba(0, 0, 0, 0.6)',
     paddingX: 16,
     paddingY: 16,
+    lineHeight: 24,
   },
 
   /** Left-half touch zone virtual joystick (mobile). */

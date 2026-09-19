@@ -40,6 +40,26 @@ export function drawPlayer(ctx, player) {
   ctx.stroke();
 }
 
+export function drawEnemies(ctx, enemies) {
+  const { radius, fill, stroke, strokeWidth, hpFont, hpColor } = CONFIG.ENEMY;
+
+  for (const enemy of enemies) {
+    ctx.beginPath();
+    ctx.arc(enemy.x, enemy.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = strokeWidth;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+
+    ctx.font = hpFont;
+    ctx.fillStyle = hpColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.max(0, Math.round(enemy.hp))), enemy.x, enemy.y);
+  }
+}
+
 export function drawBullets(ctx, bullets) {
   const { radius, fill, stroke, strokeWidth } = CONFIG.BULLET;
 
@@ -54,9 +74,17 @@ export function drawBullets(ctx, bullets) {
   }
 }
 
-export function drawHud(ctx, base) {
-  const { label, font, color, shadowColor, paddingX, paddingY } = CONFIG.HUD;
-  const text = `${label}: ${Math.round(base.hp)}`;
+export function drawHud(ctx, base, player) {
+  const {
+    baseLabel,
+    playerLabel,
+    font,
+    color,
+    shadowColor,
+    paddingX,
+    paddingY,
+    lineHeight,
+  } = CONFIG.HUD;
 
   ctx.font = font;
   ctx.textAlign = 'left';
@@ -64,7 +92,16 @@ export function drawHud(ctx, base) {
   ctx.shadowColor = shadowColor;
   ctx.shadowBlur = 4;
   ctx.fillStyle = color;
-  ctx.fillText(text, paddingX, paddingY);
+  ctx.fillText(
+    `${baseLabel}: ${Math.round(base.hp)}`,
+    paddingX,
+    paddingY,
+  );
+  ctx.fillText(
+    `${playerLabel}: ${Math.round(player.hp)}`,
+    paddingX,
+    paddingY + lineHeight,
+  );
   ctx.shadowBlur = 0;
 }
 
@@ -94,8 +131,9 @@ export function drawVirtualJoystick(ctx, joystick) {
 export function renderFrame(ctx, width, height, gameState, joystick) {
   clearCanvas(ctx, width, height);
   drawBase(ctx, gameState.base);
+  drawEnemies(ctx, gameState.enemies);
   drawBullets(ctx, gameState.bullets);
   drawPlayer(ctx, gameState.player);
-  drawHud(ctx, gameState.base);
+  drawHud(ctx, gameState.base, gameState.player);
   drawVirtualJoystick(ctx, joystick);
 }
