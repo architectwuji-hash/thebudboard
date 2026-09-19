@@ -5,8 +5,12 @@
 export const CONFIG = {
   BASE: {
     maxHp: 100,
-    /** Legacy layout reference; wall TD uses WALL for defense line. */
     radius: 45,
+    fill: '#eab308',
+    stroke: '#a16207',
+    strokeWidth: 3,
+    hpFont: 'bold 18px system-ui, sans-serif',
+    hpColor: '#1c1917',
   },
 
   /** Horizontal corridor for gameplay entities (fractions of viewport width). */
@@ -20,7 +24,7 @@ export const CONFIG = {
 
   WALL: {
     /** Wall center Y as a fraction of viewport height (canvas height). */
-    yScreenRatio: 0.62,
+    yScreenRatio: 0.8,
     /** Half-height of the stone bar (total height = halfHeight * 2). */
     halfHeight: 8,
     fill: '#7a7a8a',

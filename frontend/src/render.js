@@ -70,6 +70,24 @@ export function drawWall(ctx, wallY, worldWidth) {
   ctx.fill();
 }
 
+export function drawBase(ctx, base) {
+  const { radius, fill, stroke, strokeWidth, hpFont, hpColor } = CONFIG.BASE;
+
+  ctx.beginPath();
+  ctx.arc(base.x, base.y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = strokeWidth;
+  ctx.strokeStyle = stroke;
+  ctx.stroke();
+
+  ctx.font = hpFont;
+  ctx.fillStyle = hpColor;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(Math.round(base.hp)), base.x, base.y);
+}
+
 export function drawPlayer(ctx, player) {
   const { radius, fill, stroke, strokeWidth } = CONFIG.PLAYER;
 
@@ -231,6 +249,7 @@ export function renderFrame(
   );
   drawProtectedZone(ctx, viewportWidth, viewportHeight, gameState.wallY);
   drawWall(ctx, gameState.wallY, gameState.worldWidth);
+  drawBase(ctx, gameState.base);
   drawEnemies(ctx, gameState.enemies, gameState.wallY);
   drawBullets(ctx, gameState.bullets, gameState.wallY);
   drawPlayer(ctx, gameState.player);
