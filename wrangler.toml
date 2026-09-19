@@ -1,0 +1,3 @@
+# Cloudflare Pages (repo-managed). Output dir matches dashboard setting (.next).
+name = "thebudboard"
+pages_build_output_dir = ".next"
