@@ -71,7 +71,13 @@ export function createSceneGraph() {
   rimLight.position.set(-12, 16, -10);
   scene.add(rimLight);
 
-  scene.add(new THREE.HemisphereLight(0x6f8fff, 0x0f172a, 0.35));
+  scene.add(
+    new THREE.HemisphereLight(
+      R3.hemisphereSkyColor,
+      R3.hemisphereGroundColor,
+      R3.hemisphereIntensity,
+    ),
+  );
 
   const floorMat = new THREE.MeshStandardMaterial({
     color: R3.floorColor,
