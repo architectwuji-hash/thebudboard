@@ -50,6 +50,13 @@ function playerLaneY(wallY) {
   return wallY - radius - standoffAboveWall;
 }
 
+function baseCastlePosition(worldWidth, viewportHeight, wallY) {
+  return {
+    x: worldWidth / 2,
+    y: wallY + (viewportHeight - wallY) / 2,
+  };
+}
+
 function playerStartPosition(worldWidth, wallY) {
   return {
     x: worldWidth / 2,
@@ -82,7 +89,10 @@ export function createGameState(viewportWidth, viewportHeight) {
   );
   const wallY = wallYFromViewport(viewportHeight);
 
+  const basePos = baseCastlePosition(worldWidth, viewportHeight, wallY);
   const base = {
+    x: basePos.x,
+    y: basePos.y,
     hp: CONFIG.BASE.maxHp,
     maxHp: CONFIG.BASE.maxHp,
   };
@@ -130,6 +140,9 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
   const dy = newWallY - state.wallY;
 
   state.wallY = newWallY;
+  const basePos = baseCastlePosition(worldWidth, viewportHeight, newWallY);
+  state.base.x = basePos.x;
+  state.base.y = basePos.y;
   state.player.y += dy;
 
   for (const enemy of state.enemies) {
