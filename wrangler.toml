@@ -1,3 +1,3 @@
-# Cloudflare Pages (repo-managed). Vite build outputs to dist.
+# Cloudflare Pages config. Root dir: frontend, Vite outputs to frontend/.next
 name = "thebudboard"
-pages_build_output_dir = "dist"
+pages_build_output_dir = "frontend/.next"
