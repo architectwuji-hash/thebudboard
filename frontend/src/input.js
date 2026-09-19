@@ -16,16 +16,8 @@ const KEY_MAP = {
   ArrowRight: { x: 1, y: 0 },
 };
 
-const FIRE_KEYS = new Set(['Space']);
-
 export function createInputController(canvas) {
   const keysDown = new Set();
-  let pointerX = null;
-  let pointerY = null;
-  let mouseFireHeld = false;
-  let touchFireHeld = false;
-  let lastAimX = CONFIG.PLAYER.defaultAimX;
-  let lastAimY = CONFIG.PLAYER.defaultAimY;
 
   const joystick = {
     active: false,
@@ -42,30 +34,10 @@ export function createInputController(canvas) {
       keysDown.add(e.code);
       e.preventDefault();
     }
-    if (FIRE_KEYS.has(e.code)) {
-      keysDown.add(e.code);
-      e.preventDefault();
-    }
   });
 
   window.addEventListener('keyup', (e) => {
     keysDown.delete(e.code);
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    pointerX = e.clientX;
-    pointerY = e.clientY;
-  });
-
-  canvas.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    pointerX = e.clientX;
-    pointerY = e.clientY;
-    mouseFireHeld = true;
-  });
-
-  window.addEventListener('mouseup', (e) => {
-    if (e.button === 0) mouseFireHeld = false;
   });
 
   canvas.addEventListener(
@@ -75,12 +47,7 @@ export function createInputController(canvas) {
         if (isInJoystickZone(touch.clientX, canvas.clientWidth)) {
           activateJoystick(joystick, touch.clientX, touch.clientY);
           e.preventDefault();
-          continue;
         }
-        pointerX = touch.clientX;
-        pointerY = touch.clientY;
-        touchFireHeld = true;
-        e.preventDefault();
       }
     },
     { passive: false },
@@ -89,19 +56,11 @@ export function createInputController(canvas) {
   canvas.addEventListener(
     'touchmove',
     (e) => {
+      if (!joystick.active) return;
       for (const touch of e.changedTouches) {
-        if (joystick.active && isInJoystickZone(touch.clientX, canvas.clientWidth)) {
-          updateJoystickVector(joystick, touch.clientX, touch.clientY);
-          e.preventDefault();
-          continue;
-        }
-        if (!isInJoystickZone(touch.clientX, canvas.clientWidth)) {
-          pointerX = touch.clientX;
-          pointerY = touch.clientY;
-          touchFireHeld = true;
-          e.preventDefault();
-        }
+        updateJoystickVector(joystick, touch.clientX, touch.clientY);
       }
+      e.preventDefault();
     },
     { passive: false },
   );
@@ -111,9 +70,6 @@ export function createInputController(canvas) {
       if (joystick.active) {
         resetJoystick(joystick);
         e.preventDefault();
-      }
-      if (!isInJoystickZone(touch.clientX, canvas.clientWidth)) {
-        touchFireHeld = false;
       }
     }
   };
@@ -129,7 +85,6 @@ export function createInputController(canvas) {
 
       for (const code of keysDown) {
         const vec = KEY_MAP[code];
-        if (!vec) continue;
         axisX += vec.x;
         axisY += vec.y;
       }
@@ -140,34 +95,6 @@ export function createInputController(canvas) {
       }
 
       return normalizeAxes(axisX, axisY);
-    },
-    getAimDirection(fromX, fromY) {
-      if (pointerX != null && pointerY != null) {
-        const rect = canvas.getBoundingClientRect();
-        const worldX = pointerX - rect.left;
-        const worldY = pointerY - rect.top;
-        const dx = worldX - fromX;
-        const dy = worldY - fromY;
-        const len = Math.hypot(dx, dy);
-        if (len > 0.001) {
-          lastAimX = dx / len;
-          lastAimY = dy / len;
-        }
-      } else {
-        const movement = this.getMovementInput();
-        if (movement.axisX !== 0 || movement.axisY !== 0) {
-          lastAimX = movement.axisX;
-          lastAimY = movement.axisY;
-        }
-      }
-
-      return { aimX: lastAimX, aimY: lastAimY };
-    },
-    isFireHeld() {
-      for (const code of FIRE_KEYS) {
-        if (keysDown.has(code)) return true;
-      }
-      return mouseFireHeld || touchFireHeld;
     },
   };
 }
