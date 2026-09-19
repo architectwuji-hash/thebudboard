@@ -6,10 +6,34 @@ import { CONFIG } from './config.js';
 
 let nextEnemyId = 1;
 
-export function createGameState(width, height) {
+function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
+  const scale = CONFIG.WORLD.viewportScale;
+  return {
+    worldWidth: viewportWidth * scale,
+    worldHeight: viewportHeight * scale,
+  };
+}
+
+/** Camera top-left in world space; keeps the player near the center of the view. */
+export function getCamera(state, viewportWidth, viewportHeight) {
+  const maxX = Math.max(0, state.worldWidth - viewportWidth);
+  const maxY = Math.max(0, state.worldHeight - viewportHeight);
+
+  return {
+    x: Math.min(maxX, Math.max(0, state.player.x - viewportWidth / 2)),
+    y: Math.min(maxY, Math.max(0, state.player.y - viewportHeight / 2)),
+  };
+}
+
+export function createGameState(viewportWidth, viewportHeight) {
+  const { worldWidth, worldHeight } = worldDimensionsFromViewport(
+    viewportWidth,
+    viewportHeight,
+  );
+
   const base = {
-    x: width / 2,
-    y: height / 2,
+    x: worldWidth / 2,
+    y: worldHeight / 2,
     hp: CONFIG.BASE.maxHp,
     maxHp: CONFIG.BASE.maxHp,
   };
@@ -28,22 +52,41 @@ export function createGameState(width, height) {
     bullets: [],
     enemies: [],
     spawnTimerRemaining: CONFIG.ENEMY.spawnIntervalSeconds,
-    worldWidth: width,
-    worldHeight: height,
+    viewportWidth,
+    viewportHeight,
+    worldWidth,
+    worldHeight,
   };
 }
 
-/** Re-center base on resize; keep player offset then clamp to bounds. */
-export function resizeGameState(state, width, height) {
-  const dx = width / 2 - state.base.x;
-  const dy = height / 2 - state.base.y;
+/** Re-center base in world on resize; preserve offsets for entities. */
+export function resizeGameState(state, viewportWidth, viewportHeight) {
+  const { worldWidth, worldHeight } = worldDimensionsFromViewport(
+    viewportWidth,
+    viewportHeight,
+  );
 
-  state.base.x = width / 2;
-  state.base.y = height / 2;
+  const dx = worldWidth / 2 - state.base.x;
+  const dy = worldHeight / 2 - state.base.y;
+
+  state.base.x = worldWidth / 2;
+  state.base.y = worldHeight / 2;
   state.player.x += dx;
   state.player.y += dy;
-  state.worldWidth = width;
-  state.worldHeight = height;
+
+  for (const enemy of state.enemies) {
+    enemy.x += dx;
+    enemy.y += dy;
+  }
+  for (const bullet of state.bullets) {
+    bullet.x += dx;
+    bullet.y += dy;
+  }
+
+  state.viewportWidth = viewportWidth;
+  state.viewportHeight = viewportHeight;
+  state.worldWidth = worldWidth;
+  state.worldHeight = worldHeight;
 
   clampPlayerToWorld(state);
 }

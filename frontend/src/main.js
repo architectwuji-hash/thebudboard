@@ -1,4 +1,9 @@
-import { createGameState, resizeGameState, updateGameState } from './logic.js';
+import {
+  createGameState,
+  getCamera,
+  resizeGameState,
+  updateGameState,
+} from './logic.js';
 import { createInputController } from './input.js';
 import { renderFrame } from './render.js';
 
@@ -11,20 +16,22 @@ const ctx = canvas.getContext('2d');
 const input = createInputController(canvas);
 
 let gameState = createGameState(1, 1);
+let viewportWidth = 1;
+let viewportHeight = 1;
 
 function resizeCanvas() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const cssWidth = window.innerWidth;
-  const cssHeight = window.innerHeight;
+  viewportWidth = window.innerWidth;
+  viewportHeight = window.innerHeight;
 
-  canvas.width = Math.floor(cssWidth * dpr);
-  canvas.height = Math.floor(cssHeight * dpr);
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssHeight}px`;
+  canvas.width = Math.floor(viewportWidth * dpr);
+  canvas.height = Math.floor(viewportHeight * dpr);
+  canvas.style.width = `${viewportWidth}px`;
+  canvas.style.height = `${viewportHeight}px`;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  resizeGameState(gameState, cssWidth, cssHeight);
+  resizeGameState(gameState, viewportWidth, viewportHeight);
 }
 
 window.addEventListener('resize', resizeCanvas);
@@ -42,11 +49,14 @@ function gameLoop(timestamp) {
   const movement = input.getMovementInput();
   updateGameState(gameState, deltaSeconds, movement);
 
+  const camera = getCamera(gameState, viewportWidth, viewportHeight);
+
   renderFrame(
     ctx,
-    gameState.worldWidth,
-    gameState.worldHeight,
+    viewportWidth,
+    viewportHeight,
     gameState,
+    camera,
     input.joystick,
   );
 
