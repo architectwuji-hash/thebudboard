@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import {
   createInitialUpgrades,
+  getEffectiveAutoAimRange,
   getEffectiveBulletDamage,
   getEffectiveFireCooldownSeconds,
   updateMagnetPickups,
@@ -301,7 +302,7 @@ function updateAutoCombat(state, deltaSeconds) {
 }
 
 function findAutoAimTarget(state) {
-  const { autoAimRange } = CONFIG.PLAYER;
+  const autoAimRange = getEffectiveAutoAimRange(state);
   let bestDist = autoAimRange;
   let bestEnemy = null;
 

@@ -3,12 +3,13 @@ import { computeShopButtonRect } from './hudLayout.js';
 
 /** @typedef {{ x: number, y: number, width: number, height: number }} Rect */
 
-const POWER_IDS = ['rapidFire', 'heavyRounds', 'magnet'];
+const POWER_IDS = ['rapidFire', 'heavyRounds', 'targeting', 'magnet'];
 
 export function createInitialUpgrades() {
   return {
     rapidFire: 0,
     heavyRounds: 0,
+    targeting: 0,
     magnet: 0,
   };
 }
@@ -41,6 +42,10 @@ export function getNextLevelDescription(powerId, currentLevel) {
   }
   if (powerId === 'heavyRounds') {
     return `Lv${next}: +${Math.round(next * power.damageBonusPerLevel * 100)}% bullet damage`;
+  }
+  if (powerId === 'targeting') {
+    const range = CONFIG.PLAYER.autoAimRange + next * power.rangeBonusPerLevel;
+    return `Lv${next}: ${Math.round(range)}px auto-aim range`;
   }
   if (powerId === 'magnet') {
     const radius = power.baseRadius + next * power.radiusPerLevel;
@@ -76,6 +81,15 @@ export function getEffectiveFireCooldownSeconds(state) {
     CONFIG.SHOP.rapidFireMaxReduction,
   );
   return base * (1 - reduction);
+}
+
+export function getEffectiveAutoAimRange(state) {
+  const base = CONFIG.PLAYER.autoAimRange;
+  const level = state.upgrades.targeting ?? 0;
+  if (level <= 0) return base;
+
+  const { rangeBonusPerLevel } = CONFIG.SHOP.powers.targeting;
+  return base + level * rangeBonusPerLevel;
 }
 
 export function getEffectiveBulletDamage(state) {
