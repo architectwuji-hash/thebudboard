@@ -23,6 +23,22 @@ export const CONFIG = {
     /** Spawn offset from base center (pixels). */
     startOffsetX: 90,
     startOffsetY: 0,
+    /** Minimum seconds between shots while fire is held. */
+    fireCooldownSeconds: 0.22,
+    /** Aim direction when pointer is unavailable (unit vector). */
+    defaultAimX: 1,
+    defaultAimY: 0,
+  },
+
+  BULLET: {
+    radius: 5,
+    fill: '#fbbf24',
+    stroke: '#fef3c7',
+    strokeWidth: 1,
+    /** World-units per second. */
+    speed: 520,
+    /** Extra margin beyond world bounds before removing a bullet. */
+    cullMargin: 24,
   },
 
   CANVAS: {

@@ -40,6 +40,20 @@ export function drawPlayer(ctx, player) {
   ctx.stroke();
 }
 
+export function drawBullets(ctx, bullets) {
+  const { radius, fill, stroke, strokeWidth } = CONFIG.BULLET;
+
+  for (const bullet of bullets) {
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = strokeWidth;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+  }
+}
+
 export function drawHud(ctx, base) {
   const { label, font, color, shadowColor, paddingX, paddingY } = CONFIG.HUD;
   const text = `${label}: ${Math.round(base.hp)}`;
@@ -80,6 +94,7 @@ export function drawVirtualJoystick(ctx, joystick) {
 export function renderFrame(ctx, width, height, gameState, joystick) {
   clearCanvas(ctx, width, height);
   drawBase(ctx, gameState.base);
+  drawBullets(ctx, gameState.bullets);
   drawPlayer(ctx, gameState.player);
   drawHud(ctx, gameState.base);
   drawVirtualJoystick(ctx, joystick);
