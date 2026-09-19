@@ -1,0 +1,10 @@
+{
+  "name": "thebudboard",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build && rm -rf .next && cp -a frontend/.next .next"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
