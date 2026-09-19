@@ -216,25 +216,66 @@ function drawHudBadge(ctx, text, centerX, y) {
   ctx.textBaseline = 'middle';
   ctx.fillText(text, centerX, y + badgeHeight / 2);
 
-  return badgeWidth;
+  return { badgeWidth, badgeHeight };
 }
 
-export function drawWaveAndScoreBadges(ctx, wave, score, viewportWidth) {
-  const { waveLabel, scoreLabel, paddingY } = CONFIG.HUD;
-  const gap = 12;
+function measureLeftHudWidth(ctx, base, player) {
+  const { baseLabel, playerLabel, font } = CONFIG.HUD;
+  ctx.font = font;
+  const baseLine = `${baseLabel}: ${Math.round(base.hp)}`;
+  const playerLine = `${playerLabel}: ${Math.round(player.hp)}`;
+  return Math.max(ctx.measureText(baseLine).width, ctx.measureText(playerLine).width);
+}
+
+function waveScoreBadgeMetrics(ctx, wave, score) {
+  const { waveLabel, scoreLabel, waveBadgeFont, waveBadgePaddingX } = CONFIG.HUD;
+  const badgeGap = 12;
   const waveText = `${waveLabel}: ${wave}`;
   const scoreText = `${scoreLabel}: ${score}`;
 
-  ctx.font = CONFIG.HUD.waveBadgeFont;
-  const waveWidth =
-    ctx.measureText(waveText).width + CONFIG.HUD.waveBadgePaddingX * 2;
-  const scoreWidth =
-    ctx.measureText(scoreText).width + CONFIG.HUD.waveBadgePaddingX * 2;
-  const totalWidth = waveWidth + gap + scoreWidth;
-  const startX = (viewportWidth - totalWidth) / 2;
+  ctx.font = waveBadgeFont;
+  const waveWidth = ctx.measureText(waveText).width + waveBadgePaddingX * 2;
+  const scoreWidth = ctx.measureText(scoreText).width + waveBadgePaddingX * 2;
+  return {
+    badgeGap,
+    waveText,
+    scoreText,
+    waveWidth,
+    scoreWidth,
+    totalWidth: waveWidth + badgeGap + scoreWidth,
+  };
+}
 
-  drawHudBadge(ctx, waveText, startX + waveWidth / 2, paddingY);
-  drawHudBadge(ctx, scoreText, startX + waveWidth + gap + scoreWidth / 2, paddingY);
+export function drawWaveAndScoreBadges(ctx, wave, score, viewportWidth, base, player) {
+  const { paddingX, paddingY, lineHeight, hudElementGap, hudBadgeRowGap } =
+    CONFIG.HUD;
+  const metrics = waveScoreBadgeMetrics(ctx, wave, score);
+  const { badgeGap, waveText, scoreText, waveWidth, scoreWidth, totalWidth } =
+    metrics;
+
+  const leftBlockRight = paddingX + measureLeftHudWidth(ctx, base, player);
+
+  let badgeY = paddingY;
+  let startX = (viewportWidth - totalWidth) / 2;
+
+  const overlapsLeft = startX < leftBlockRight + hudElementGap;
+  if (overlapsLeft) {
+    startX = Math.max(paddingX, viewportWidth - paddingX - totalWidth);
+  }
+
+  const stillOverlapsLeft = startX < leftBlockRight + hudElementGap;
+  if (stillOverlapsLeft) {
+    badgeY = paddingY + lineHeight * 2 + hudBadgeRowGap;
+    startX = Math.max(paddingX, (viewportWidth - totalWidth) / 2);
+  }
+
+  drawHudBadge(ctx, waveText, startX + waveWidth / 2, badgeY);
+  drawHudBadge(
+    ctx,
+    scoreText,
+    startX + waveWidth + badgeGap + scoreWidth / 2,
+    badgeY,
+  );
 }
 
 /** Optional mobile joystick overlay (drawn only while active). */
@@ -289,6 +330,13 @@ export function renderFrame(
   ctx.restore();
 
   drawHud(ctx, gameState.base, gameState.player);
-  drawWaveAndScoreBadges(ctx, gameState.wave, gameState.score, viewportWidth);
+  drawWaveAndScoreBadges(
+    ctx,
+    gameState.wave,
+    gameState.score,
+    viewportWidth,
+    gameState.base,
+    gameState.player,
+  );
   drawVirtualJoystick(ctx, joystick);
 }
