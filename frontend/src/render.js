@@ -10,22 +10,41 @@ export function clearCanvas(ctx, width, height) {
   ctx.fillRect(0, 0, width, height);
 }
 
-export function drawBase(ctx, base) {
-  const { radius, fill, stroke, strokeWidth, hpFont, hpColor } = CONFIG.BASE;
+export function drawProtectedZone(ctx, viewportWidth, viewportHeight, wallY) {
+  const { halfHeight } = CONFIG.WALL;
+  const top = wallY + halfHeight;
 
-  ctx.beginPath();
-  ctx.arc(base.x, base.y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = CONFIG.CANVAS.protectedZone;
+  ctx.fillRect(0, top, viewportWidth, viewportHeight - top);
+}
+
+export function drawWall(ctx, wallY, worldWidth) {
+  const {
+    halfHeight,
+    fill,
+    borderColor,
+    borderWidth,
+    gateWidth,
+    gateHeight,
+    gateFill,
+  } = CONFIG.WALL;
+
+  const barTop = wallY - halfHeight;
+  const barHeight = halfHeight * 2;
+
   ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.lineWidth = strokeWidth;
-  ctx.strokeStyle = stroke;
-  ctx.stroke();
+  ctx.fillRect(0, barTop, worldWidth, barHeight);
 
-  ctx.font = hpFont;
-  ctx.fillStyle = hpColor;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(String(Math.round(base.hp)), base.x, base.y);
+  ctx.fillStyle = borderColor;
+  ctx.fillRect(0, barTop - borderWidth, worldWidth, borderWidth);
+  ctx.fillRect(0, barTop + barHeight, worldWidth, borderWidth);
+
+  const gateX = worldWidth / 2 - gateWidth / 2;
+  const gateY = barTop + (barHeight - gateHeight) / 2;
+  ctx.fillStyle = gateFill;
+  ctx.beginPath();
+  ctx.roundRect(gateX, gateY, gateWidth, gateHeight, 6);
+  ctx.fill();
 }
 
 export function drawPlayer(ctx, player) {
@@ -40,10 +59,13 @@ export function drawPlayer(ctx, player) {
   ctx.stroke();
 }
 
-export function drawEnemies(ctx, enemies) {
+export function drawEnemies(ctx, enemies, wallY) {
   const { radius, fill, stroke, strokeWidth, hpFont, hpColor } = CONFIG.ENEMY;
+  const maxVisibleY = wallY - radius;
 
   for (const enemy of enemies) {
+    if (enemy.y > maxVisibleY) continue;
+
     ctx.beginPath();
     ctx.arc(enemy.x, enemy.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = fill;
@@ -60,10 +82,12 @@ export function drawEnemies(ctx, enemies) {
   }
 }
 
-export function drawBullets(ctx, bullets) {
+export function drawBullets(ctx, bullets, wallY) {
   const { radius, fill, stroke, strokeWidth } = CONFIG.BULLET;
 
   for (const bullet of bullets) {
+    if (bullet.y > wallY) continue;
+
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = fill;
@@ -105,6 +129,41 @@ export function drawHud(ctx, base, player) {
   ctx.shadowBlur = 0;
 }
 
+export function drawWaveBadge(ctx, wave, viewportWidth) {
+  const {
+    waveLabel,
+    waveBadgeFont,
+    waveBadgeFill,
+    waveBadgeStroke,
+    waveBadgeText,
+    waveBadgePaddingX,
+    waveBadgePaddingY,
+    waveBadgeRadius,
+    paddingY,
+  } = CONFIG.HUD;
+
+  const text = `${waveLabel}: ${wave}`;
+  ctx.font = waveBadgeFont;
+  const textWidth = ctx.measureText(text).width;
+  const badgeWidth = textWidth + waveBadgePaddingX * 2;
+  const badgeHeight = 16 + waveBadgePaddingY * 2;
+  const x = (viewportWidth - badgeWidth) / 2;
+  const y = paddingY;
+
+  ctx.fillStyle = waveBadgeFill;
+  ctx.strokeStyle = waveBadgeStroke;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(x, y, badgeWidth, badgeHeight, waveBadgeRadius);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = waveBadgeText;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x + badgeWidth / 2, y + badgeHeight / 2);
+}
+
 /** Optional mobile joystick overlay (drawn only while active). */
 export function drawVirtualJoystick(ctx, joystick) {
   if (!joystick.active) return;
@@ -140,12 +199,14 @@ export function renderFrame(
 
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
-  drawBase(ctx, gameState.base);
-  drawEnemies(ctx, gameState.enemies);
-  drawBullets(ctx, gameState.bullets);
+  drawProtectedZone(ctx, viewportWidth, viewportHeight, gameState.wallY);
+  drawWall(ctx, gameState.wallY, gameState.worldWidth);
+  drawEnemies(ctx, gameState.enemies, gameState.wallY);
+  drawBullets(ctx, gameState.bullets, gameState.wallY);
   drawPlayer(ctx, gameState.player);
   ctx.restore();
 
   drawHud(ctx, gameState.base, gameState.player);
+  drawWaveBadge(ctx, gameState.wave, viewportWidth);
   drawVirtualJoystick(ctx, joystick);
 }
