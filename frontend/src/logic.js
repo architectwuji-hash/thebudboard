@@ -5,6 +5,7 @@ import { CONFIG } from './config.js';
  */
 
 let nextEnemyId = 1;
+let nextPickupId = 1;
 
 function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
   const scale = CONFIG.WORLD.viewportScale;
@@ -109,6 +110,8 @@ export function createGameState(viewportWidth, viewportHeight) {
     player,
     bullets: [],
     enemies: [],
+    pickups: [],
+    score: 0,
     wallY,
     wave: 1,
     spawnTimerRemaining: CONFIG.ENEMY.spawnIntervalSeconds,
@@ -151,6 +154,9 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
   for (const bullet of state.bullets) {
     bullet.y += dy;
   }
+  for (const pickup of state.pickups) {
+    pickup.y += dy;
+  }
 
   state.viewportWidth = viewportWidth;
   state.viewportHeight = viewportHeight;
@@ -172,6 +178,7 @@ export function updateGameState(state, deltaSeconds, movement) {
   state.player.x += movement.axisX * speed * deltaSeconds;
   state.player.y += movement.axisY * speed * deltaSeconds;
   clampPlayerToWorld(state);
+  collectPickups(state);
 
   updateEnemies(state, deltaSeconds);
   clampEnemyPositions(state);
@@ -359,7 +366,38 @@ function updateBullets(state, deltaSeconds) {
   }
 
   state.bullets = remainingBullets;
-  state.enemies = state.enemies.filter((e) => e.hp > 0);
+
+  const survivingEnemies = [];
+  for (const enemy of state.enemies) {
+    if (enemy.hp > 0) {
+      survivingEnemies.push(enemy);
+      continue;
+    }
+    state.pickups.push({
+      id: nextPickupId++,
+      x: enemy.x,
+      y: enemy.y,
+    });
+  }
+  state.enemies = survivingEnemies;
+}
+
+function collectPickups(state) {
+  const playerRadius = CONFIG.PLAYER.radius;
+  const pickupRadius = CONFIG.PICKUP.radius;
+
+  state.pickups = state.pickups.filter((pickup) => {
+    const collected = circlesOverlap(
+      state.player.x,
+      state.player.y,
+      playerRadius,
+      pickup.x,
+      pickup.y,
+      pickupRadius,
+    );
+    if (collected) state.score += 1;
+    return !collected;
+  });
 }
 
 function circlesOverlap(x1, y1, r1, x2, y2, r2) {
