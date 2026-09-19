@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+# TheBudBoard — agent workflow
+
+- Work on **`main` only**. Never open a PR. Commit with clear messages and push to `main` when done.
+- **`main` → Cloudflare Pages** deploys thebudboard.com. After each push, curl https://thebudboard.com every 30s for up to 10 minutes until the live site matches the change; if not, fix and push again without asking the user to deploy or change dashboard settings.
+- Only escalate when a login or permission is impossible to obtain; say exactly what is missing.
+- **Architecture:** logic never draws; all canvas drawing in `frontend/src/render.js`; all stats in `frontend/src/config.js`; no magic numbers in logic; delta-time loop in `main.js`.
+- **Scope:** implement only the requested milestone. Test desktop keyboard and mobile touch. Finish with a brief report (built, live status, iPhone test steps).

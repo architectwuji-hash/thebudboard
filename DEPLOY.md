@@ -12,7 +12,7 @@ The live site is a **static Vite build** from the `frontend/` folder.
 | Production branch | `main` (or your chosen branch) |
 | Root directory | `frontend` |
 | Build command | `npm run build` |
-| Build output directory | `dist` |
+| Build output directory | `.next` |
 
 3. Save and **Retry deployment** after merging game changes.
 
@@ -30,4 +30,4 @@ cd frontend && npm install && npm run build && npm run preview
 
 The repo still contains `scraper/` and `supabase/` from the previous BudBoard deals app. They are **not** part of the static game deploy. See git history for the former Next.js frontend.
 
-Previous docs referenced Vercel + Next.js (`frontend/.next`). The game uses **`frontend/dist`** instead.
+The game is Vite; build output directory stays **`.next`** to match the existing Cloudflare Pages setting (no dashboard change required).

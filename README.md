@@ -38,7 +38,7 @@ Keep your existing Pages project and custom domain. Update **build settings** if
 |---------|--------|
 | Root directory | `frontend` |
 | Build command | `npm run build` |
-| Build output directory | `dist` |
+| Build output directory | `.next` |
 | Framework preset | Vite (or None) |
 
 Environment variables from the old deals site are no longer required for the game.

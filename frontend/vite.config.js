@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 
-/** Static build for Cloudflare Pages (output: dist). */
+/** Static build for Cloudflare Pages (output matches dashboard: .next). */
 export default defineConfig({
   base: '/',
   build: {
-    outDir: 'dist',
+    outDir: '.next',
     emptyOutDir: true,
   },
 });
