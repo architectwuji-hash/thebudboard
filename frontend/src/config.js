@@ -109,6 +109,10 @@ export const CONFIG = {
     paddingX: 16,
     paddingY: 16,
     lineHeight: 24,
+    /** Min gap between left HP block and wave/score badges. */
+    hudElementGap: 12,
+    /** Extra space below HP lines when badges move to a second row. */
+    hudBadgeRowGap: 8,
     waveBadgeFont: '700 16px system-ui, sans-serif',
     waveBadgeFill: 'rgba(15, 23, 42, 0.85)',
     waveBadgeStroke: 'rgba(148, 163, 184, 0.45)',
