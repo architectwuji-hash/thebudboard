@@ -6,7 +6,7 @@ Instructions for Cursor Cloud Agents and other automated contributors.
 
 - Work **directly on `main`**. Do **not** open pull requests.
 - Commit in **small, clear messages** and **push to `main`** when the task is done.
-- Pushing to `main` **auto-deploys** [thebudboard.com](https://thebudboard.com) via Cloudflare Pages (`frontend/`, build command `npm run build`, output `.next`).
+- Pushing to `main` deploys **www.thebudboard.com** via Vercel (`frontend/`, Vite build → `.next`). Apex **thebudboard.com** is on Cloudflare Pages and requires `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` GitHub secrets (and repo variable `CLOUDFLARE_PAGES_DEPLOY=true`) to deploy via `.github/workflows/cloudflare-pages.yml`, or a working Cloudflare Git integration on that project.
 - After **every push**, verify production: `curl -sL https://thebudboard.com` (or fetch the page) and poll every **30 seconds** for up to **10 minutes** until the live HTML reflects your change.
 - If the site does not update, **diagnose and fix** (build output path, broken build, wrong root directory, etc.) and push again. Do **not** ask the human to merge, deploy, or change dashboard settings unless a **login or permission is truly missing** — then state exactly what is needed.
 
