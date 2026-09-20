@@ -104,6 +104,18 @@ export const CONFIG = {
     hpColor: '#ffffff',
   },
 
+  /** One boss per wave when wave number is a multiple of everyNWaves. */
+  BOSS: {
+    everyNWaves: 10,
+    maxHp: 420,
+    /** Added for each boss tier (wave 20, 30, …). */
+    maxHpPerTier: 160,
+    radius: 22,
+    speed: 78,
+    contactDamage: 26,
+    contactCooldownSeconds: 0.85,
+  },
+
   /** World matches viewport so layout bands align with the screen. */
   WORLD: {
     viewportScale: 1,
@@ -132,6 +144,10 @@ export const CONFIG = {
     enemyColor: 0x7f1d1d,
     enemyEmissive: 0x450a0a,
     enemyEmissiveIntensity: 0.15,
+    bossColor: 0x4c1d95,
+    bossEmissive: 0x2e1065,
+    bossEmissiveIntensity: 0.35,
+    bossScaleMultiplier: 1.55,
     bulletColor: 0x422006,
     bulletEmissive: 0xca8a04,
     bulletEmissiveIntensity: 1.1,

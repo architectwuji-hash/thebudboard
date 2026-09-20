@@ -47,10 +47,38 @@ function clampXInPlayArea(state, x, radius) {
   return Math.min(maxX, Math.max(minX, x));
 }
 
+function enemyRadius(enemy) {
+  return enemy.isBoss ? CONFIG.BOSS.radius : CONFIG.ENEMY.radius;
+}
+
+function enemySpeed(enemy) {
+  return enemy.isBoss ? CONFIG.BOSS.speed : CONFIG.ENEMY.speed;
+}
+
+function enemyContactDamage(enemy) {
+  return enemy.isBoss ? CONFIG.BOSS.contactDamage : CONFIG.ENEMY.contactDamage;
+}
+
+function enemyContactCooldownSeconds(enemy) {
+  return enemy.isBoss
+    ? CONFIG.BOSS.contactCooldownSeconds
+    : CONFIG.ENEMY.contactCooldownSeconds;
+}
+
+function bossesToSpawnForWave(wave) {
+  const { everyNWaves } = CONFIG.BOSS;
+  return wave > 0 && wave % everyNWaves === 0 ? 1 : 0;
+}
+
+function bossMaxHpForWave(wave) {
+  const { maxHp, maxHpPerTier, everyNWaves } = CONFIG.BOSS;
+  const tier = Math.floor(wave / everyNWaves);
+  return maxHp + maxHpPerTier * Math.max(0, tier - 1);
+}
+
 function clampEnemyPositions(state) {
-  const { radius } = CONFIG.ENEMY;
   for (const enemy of state.enemies) {
-    enemy.x = clampXInPlayArea(state, enemy.x, radius);
+    enemy.x = clampXInPlayArea(state, enemy.x, enemyRadius(enemy));
   }
 }
 
@@ -152,6 +180,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     wave: 1,
     /** Enemies still to spawn for the current wave (wave N → N spawns). */
     enemiesLeftToSpawnInWave: 1,
+    bossesLeftToSpawnInWave: 0,
     waitingForNextWave: false,
     interWaveTimer: 0,
     spawnTimerRemaining: 0,
@@ -252,6 +281,7 @@ function updateSpawns(state, deltaSeconds) {
 
   if (
     state.enemiesLeftToSpawnInWave === 0 &&
+    state.bossesLeftToSpawnInWave === 0 &&
     state.enemies.length === 0
   ) {
     if (state.waitingForNextWave) {
@@ -261,6 +291,7 @@ function updateSpawns(state, deltaSeconds) {
       state.waitingForNextWave = false;
       state.wave += 1;
       state.enemiesLeftToSpawnInWave = state.wave;
+      state.bossesLeftToSpawnInWave = bossesToSpawnForWave(state.wave);
       state.spawnTimerRemaining = 0;
     } else {
       state.waitingForNextWave = true;
@@ -269,39 +300,69 @@ function updateSpawns(state, deltaSeconds) {
     }
   }
 
-  if (state.enemiesLeftToSpawnInWave <= 0) return;
+  if (
+    state.enemiesLeftToSpawnInWave <= 0 &&
+    state.bossesLeftToSpawnInWave <= 0
+  ) {
+    return;
+  }
 
   state.spawnTimerRemaining -= deltaSeconds;
   while (
     state.spawnTimerRemaining <= 0 &&
-    state.enemiesLeftToSpawnInWave > 0
+    (state.enemiesLeftToSpawnInWave > 0 || state.bossesLeftToSpawnInWave > 0)
   ) {
-    state.enemies.push(createEnemyAtTopEdge(state));
-    state.enemiesLeftToSpawnInWave -= 1;
+    if (state.bossesLeftToSpawnInWave > 0) {
+      state.enemies.push(createBossAtTopEdge(state));
+      state.bossesLeftToSpawnInWave -= 1;
+    } else {
+      state.enemies.push(createEnemyAtTopEdge(state));
+      state.enemiesLeftToSpawnInWave -= 1;
+    }
     state.spawnTimerRemaining += spawnIntervalSeconds;
   }
 }
 
-function createEnemyAtTopEdge(state) {
-  const { radius } = CONFIG.ENEMY;
+function spawnXAtTopEdge(state, radius) {
   const minX = state.playAreaLeft + radius;
   const maxX = state.playAreaRight - radius;
+  return minX + Math.random() * (maxX - minX);
+}
+
+function createEnemyAtTopEdge(state) {
+  const { radius } = CONFIG.ENEMY;
 
   return {
     id: nextEnemyId++,
-    x: minX + Math.random() * (maxX - minX),
+    x: spawnXAtTopEdge(state, radius),
     y: -radius,
     hp: CONFIG.ENEMY.maxHp,
     maxHp: CONFIG.ENEMY.maxHp,
+    isBoss: false,
+    playerContactCooldown: 0,
+  };
+}
+
+function createBossAtTopEdge(state) {
+  const { radius } = CONFIG.BOSS;
+  const maxHp = bossMaxHpForWave(state.wave);
+
+  return {
+    id: nextEnemyId++,
+    x: spawnXAtTopEdge(state, radius),
+    y: -radius,
+    hp: maxHp,
+    maxHp,
+    isBoss: true,
     playerContactCooldown: 0,
   };
 }
 
 function updateEnemies(state, deltaSeconds) {
-  const { speed } = CONFIG.ENEMY;
   const wallPoint = wallTargetPoint(state);
 
   for (const enemy of state.enemies) {
+    const speed = enemySpeed(enemy);
     const target = pickEnemyTarget(state, enemy, wallPoint);
     const dx = target.x - enemy.x;
     const dy = target.y - enemy.y;
@@ -323,19 +384,16 @@ function pickEnemyTarget(state, enemy, wallPoint) {
 }
 
 function resolveEnemyWallBreaches(state) {
-  const { radius, contactDamage } = CONFIG.ENEMY;
-  const breachY = state.wallY - radius;
-
   state.enemies = state.enemies.filter((enemy) => {
+    const radius = enemyRadius(enemy);
+    const breachY = state.wallY - radius;
     if (enemy.y < breachY) return true;
-    state.base.hp = Math.max(0, state.base.hp - contactDamage);
+    state.base.hp = Math.max(0, state.base.hp - enemyContactDamage(enemy));
     return false;
   });
 }
 
 function resolveEnemyPlayerContact(state, deltaSeconds) {
-  const { radius: enemyRadius, contactDamage, contactCooldownSeconds } =
-    CONFIG.ENEMY;
   const playerRadius = CONFIG.PLAYER.radius;
 
   for (const enemy of state.enemies) {
@@ -348,15 +406,18 @@ function resolveEnemyPlayerContact(state, deltaSeconds) {
       circlesOverlap(
         enemy.x,
         enemy.y,
-        enemyRadius,
+        enemyRadius(enemy),
         state.player.x,
         state.player.y,
         playerRadius,
       ) &&
       enemy.playerContactCooldown <= 0
     ) {
-      state.player.hp = Math.max(0, state.player.hp - contactDamage);
-      enemy.playerContactCooldown = contactCooldownSeconds;
+      state.player.hp = Math.max(
+        0,
+        state.player.hp - enemyContactDamage(enemy),
+      );
+      enemy.playerContactCooldown = enemyContactCooldownSeconds(enemy);
     }
   }
 }
@@ -457,8 +518,6 @@ function updateBullets(state, deltaSeconds) {
   const maxX = state.worldWidth + cullMargin;
   const maxY = state.worldHeight + cullMargin;
   const min = -cullMargin;
-  const enemyRadius = CONFIG.ENEMY.radius;
-
   const remainingBullets = [];
 
   for (const bullet of state.bullets) {
@@ -478,7 +537,7 @@ function updateBullets(state, deltaSeconds) {
           bulletRadius,
           enemy.x,
           enemy.y,
-          enemyRadius,
+          enemyRadius(enemy),
         )
       ) {
         enemy.hp -= bullet.damage ?? playerDamage;
