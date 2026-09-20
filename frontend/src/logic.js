@@ -56,7 +56,29 @@ function enemySpeed(enemy) {
 }
 
 function enemyContactDamage(enemy) {
+  if (enemy.contactDamage != null) return enemy.contactDamage;
   return enemy.isBoss ? CONFIG.BOSS.contactDamage : CONFIG.ENEMY.contactDamage;
+}
+
+/** Power tier steps at waves 5, 10, 15, … */
+function wavePowerTier(wave) {
+  const step = CONFIG.ENEMY.scalingEveryNWaves;
+  return Math.floor(wave / step);
+}
+
+function gruntMaxHpForWave(wave) {
+  const tier = wavePowerTier(wave);
+  return CONFIG.ENEMY.maxHp + tier * CONFIG.ENEMY.hpPerTier;
+}
+
+function gruntContactDamageForWave(wave) {
+  const tier = wavePowerTier(wave);
+  return CONFIG.ENEMY.contactDamage + tier * CONFIG.ENEMY.contactDamagePerTier;
+}
+
+function bossContactDamageForWave(wave) {
+  const tier = wavePowerTier(wave);
+  return CONFIG.BOSS.contactDamage + tier * CONFIG.BOSS.contactDamagePerTier;
 }
 
 function enemyContactCooldownSeconds(enemy) {
@@ -71,9 +93,11 @@ function bossesToSpawnForWave(wave) {
 }
 
 function bossMaxHpForWave(wave) {
-  const { maxHp, maxHpPerTier, everyNWaves } = CONFIG.BOSS;
-  const tier = Math.floor(wave / everyNWaves);
-  return maxHp + maxHpPerTier * Math.max(0, tier - 1);
+  const { maxHp, maxHpPerTier, everyNWaves, hpPerTier } = CONFIG.BOSS;
+  const bossTier = Math.floor(wave / everyNWaves);
+  const base =
+    maxHp + maxHpPerTier * Math.max(0, bossTier - 1) + wavePowerTier(wave) * hpPerTier;
+  return base;
 }
 
 function clampEnemyPositions(state) {
@@ -331,13 +355,16 @@ function spawnXAtTopEdge(state, radius) {
 
 function createEnemyAtTopEdge(state) {
   const { radius } = CONFIG.ENEMY;
+  const maxHp = gruntMaxHpForWave(state.wave);
+  const contactDamage = gruntContactDamageForWave(state.wave);
 
   return {
     id: nextEnemyId++,
     x: spawnXAtTopEdge(state, radius),
     y: -radius,
-    hp: CONFIG.ENEMY.maxHp,
-    maxHp: CONFIG.ENEMY.maxHp,
+    hp: maxHp,
+    maxHp,
+    contactDamage,
     isBoss: false,
     playerContactCooldown: 0,
   };
@@ -346,6 +373,7 @@ function createEnemyAtTopEdge(state) {
 function createBossAtTopEdge(state) {
   const { radius } = CONFIG.BOSS;
   const maxHp = bossMaxHpForWave(state.wave);
+  const contactDamage = bossContactDamageForWave(state.wave);
 
   return {
     id: nextEnemyId++,
@@ -353,6 +381,7 @@ function createBossAtTopEdge(state) {
     y: -radius,
     hp: maxHp,
     maxHp,
+    contactDamage,
     isBoss: true,
     playerContactCooldown: 0,
   };

@@ -100,6 +100,10 @@ export const CONFIG = {
     spawnIntervalSeconds: 0.85,
     /** Pause after clearing a wave before the next wave begins. */
     interWaveDelaySeconds: 2,
+    /** Every N waves (5, 10, 15, …) grunt HP and contact damage increase. */
+    scalingEveryNWaves: 5,
+    hpPerTier: 14,
+    contactDamagePerTier: 2,
     hpFont: 'bold 11px system-ui, sans-serif',
     hpColor: '#ffffff',
   },
@@ -114,6 +118,9 @@ export const CONFIG = {
     speed: 78,
     contactDamage: 26,
     contactCooldownSeconds: 0.85,
+    /** Added per scaling tier (same cadence as ENEMY.scalingEveryNWaves). */
+    hpPerTier: 48,
+    contactDamagePerTier: 4,
   },
 
   /** World matches viewport so layout bands align with the screen. */
