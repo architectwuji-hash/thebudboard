@@ -243,8 +243,17 @@ export function createSceneGraph() {
     metalness: 0.35,
   });
 
+  const soldierMat = new THREE.MeshStandardMaterial({
+    color: R3.soldierColor,
+    emissive: R3.soldierEmissive,
+    emissiveIntensity: R3.soldierEmissiveIntensity,
+    roughness: R3.roughnessDefault,
+    metalness: R3.metalnessDefault,
+  });
+
   const enemyMeshes = new Map();
   const bossMeshes = new Map();
+  const soldierMeshes = new Map();
   const bulletMeshes = new Map();
   const enemyBulletMeshes = new Map();
   const pickupMeshes = new Map();
@@ -283,6 +292,8 @@ export function createSceneGraph() {
     enemyGeo,
     enemyMat,
     bossMat,
+    soldierMat,
+    soldierMeshes,
     enemyMeshes,
     bossMeshes,
     get enemyInstanced() {
@@ -441,11 +452,14 @@ function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
   for (let i = 0; i < state.towers.length; i += 1) {
     const tower = state.towers[i];
     const mesh = graph.towerMeshes[i];
-    if (!mesh) continue;
+    if (!mesh || !tower) continue;
 
-    const alive = towerSlotUnlocked(state, i) && (tower.hp ?? 0) > 0;
-    mesh.visible = alive;
-    if (!alive) continue;
+    const alive =
+      towerSlotUnlocked(state, i) && (tower.hp ?? CONFIG.TOWER.maxHp) > 0;
+    if (!alive) {
+      mesh.visible = false;
+      continue;
+    }
 
     const view = entityViewPos(tower, cameraScroll);
     const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
@@ -478,6 +492,38 @@ function syncBossMeshes(graph, bosses, cameraScroll, viewportWidth, viewportHeig
     const r = pxToWorld(CONFIG.BOSS.radius) * bossScale;
     mesh.position.set(pos.x, r * 0.92, pos.z);
     mesh.scale.set(r, r, r);
+  }
+}
+
+function syncSoldiers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
+  const maxY = state.wallY;
+  const visible = state.soldiers.filter((s) => s.y <= maxY);
+  const live = new Set(visible.map((s) => s.id));
+
+  for (const [id, mesh] of graph.soldierMeshes) {
+    if (!live.has(id)) {
+      graph.scene.remove(mesh);
+      graph.soldierMeshes.delete(id);
+    }
+  }
+
+  for (const soldier of visible) {
+    let mesh = graph.soldierMeshes.get(soldier.id);
+    if (!mesh) {
+      mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 20), graph.soldierMat);
+      mesh.castShadow = true;
+      graph.soldierMeshes.set(soldier.id, mesh);
+      graph.scene.add(mesh);
+    }
+    const view = entityViewPos(soldier, cameraScroll);
+    placeSphere(
+      mesh,
+      view.x,
+      view.y,
+      CONFIG.SOLDIER.radius,
+      viewportWidth,
+      viewportHeight,
+    );
   }
 }
 
@@ -659,6 +705,7 @@ export function renderWorldFrame(
   );
   syncPlayer(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncTowers(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
+  syncSoldiers(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncEnemies(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncBullets(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncPickups(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
@@ -701,7 +748,10 @@ export function drawUpgradeBuffIcons(ctx, upgrades, anchorX, anchorY) {
   let x = anchorX;
 
   for (const powerId of listShopPowerIds()) {
-    const level = upgrades[powerId] ?? 0;
+    const level =
+      powerId === 'unlockTower'
+        ? (upgrades.unlockedTowerCount ?? 0)
+        : (upgrades[powerId] ?? 0);
     if (level <= 0) continue;
 
     const accent = powers[powerId].accent;
@@ -756,9 +806,12 @@ export function drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight) {
     const powerId = powerIds[i];
     const power = getPowerDefinition(powerId);
     const row = layout.rows[i];
-    const level = gameState.upgrades[powerId] ?? 0;
+    const level =
+      powerId === 'unlockTower'
+        ? (gameState.upgrades.unlockedTowerCount ?? 0)
+        : (gameState.upgrades[powerId] ?? 0);
     const cost = getUpgradeCost(powerId, level);
-    const nextDesc = getNextLevelDescription(powerId, level);
+    const nextDesc = getNextLevelDescription(powerId, level, gameState);
 
     ctx.fillStyle = overlay.rowFill;
     ctx.strokeStyle = overlay.rowStroke;
@@ -774,11 +827,15 @@ export function drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight) {
     ctx.textBaseline = 'top';
     ctx.fillStyle = overlay.rowColor;
     ctx.font = overlay.rowFont;
-    ctx.fillText(
-      `${power.name}  Lv ${level}/${CONFIG.SHOP.maxLevel}`,
-      row.x + 12,
-      row.y + 8,
-    );
+    let levelLabel;
+    if (powerId === 'recruitSoldier') {
+      levelLabel = power.name;
+    } else if (powerId === 'unlockTower') {
+      levelLabel = `${power.name}  ${level}/${CONFIG.TOWER.count}`;
+    } else {
+      levelLabel = `${power.name}  Lv ${level}/${CONFIG.SHOP.maxLevel}`;
+    }
+    ctx.fillText(levelLabel, row.x + 12, row.y + 8);
 
     ctx.fillStyle = overlay.detailColor;
     ctx.font = overlay.detailFont;
@@ -796,6 +853,42 @@ export function drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight) {
     font: '700 15px system-ui, sans-serif',
     radius: 8,
   });
+}
+
+function drawSoldierHealthBars(ctx, gameState, cameraScroll) {
+  const {
+    radius,
+    hpBarWidth,
+    hpBarHeight,
+    hpBarOffsetY,
+    hpBarBg,
+    hpBarFill,
+    hpBarBorder,
+  } = CONFIG.SOLDIER;
+  const maxY = gameState.wallY;
+
+  for (const soldier of gameState.soldiers) {
+    if (soldier.y > maxY) continue;
+    const view = entityViewPos(soldier, cameraScroll);
+    const barX = view.x - hpBarWidth / 2;
+    const barY = view.y - radius - hpBarOffsetY - hpBarHeight;
+    const ratio = Math.max(0, Math.min(1, soldier.hp / soldier.maxHp));
+
+    ctx.fillStyle = hpBarBg;
+    ctx.strokeStyle = hpBarBorder;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, hpBarWidth, hpBarHeight, 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (ratio > 0) {
+      ctx.fillStyle = hpBarFill;
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, hpBarWidth * ratio, hpBarHeight, 2);
+      ctx.fill();
+    }
+  }
 }
 
 export function drawVirtualJoystick(ctx, joystick) {
@@ -826,9 +919,14 @@ export function renderOverlayFrame(
   viewportHeight,
   gameState,
   joystick,
+  cameraScroll,
 ) {
   ctx.clearRect(0, 0, viewportWidth, viewportHeight);
   if (gameState.gameOver) return;
+
+  if (cameraScroll) {
+    drawSoldierHealthBars(ctx, gameState, cameraScroll);
+  }
 
   drawUpgradeBuffIcons(
     ctx,

@@ -11,7 +11,15 @@ const POWER_IDS = [
   'baseHealth',
   'playerHealth',
   'playerDamage',
+  'recruitSoldier',
+  'soldierHealth',
+  'soldierDamage',
+  'unlockTower',
+  'towerDamage',
 ];
+
+const RECRUIT_POWER_ID = 'recruitSoldier';
+const UNLOCK_TOWER_POWER_ID = 'unlockTower';
 
 export function createInitialUpgrades() {
   return {
@@ -22,7 +30,46 @@ export function createInitialUpgrades() {
     baseHealth: 0,
     playerHealth: 0,
     playerDamage: 0,
+    soldierHealth: 0,
+    soldierDamage: 0,
+    /** One starter turret visible; buy Unlock Tower for slots 2–5. */
+    unlockedTowerCount: 1,
+    towerDamage: 0,
   };
+}
+
+export function getUnlockedTowerCount(state) {
+  const count = state.upgrades.unlockedTowerCount ?? 0;
+  return Math.min(Math.max(0, count), CONFIG.TOWER.count);
+}
+
+export function getEffectiveTowerDamage(state) {
+  const base = CONFIG.TOWER.damage;
+  const level = state.upgrades.towerDamage ?? 0;
+  if (level <= 0) return base;
+  const { damagePerLevel } = CONFIG.SHOP.powers.towerDamage;
+  return base + level * damagePerLevel;
+}
+
+/** Recruits always cost the flat baseCost (not level-scaled). */
+export function getRecruitSoldierCost() {
+  return CONFIG.SHOP.powers.recruitSoldier.baseCost;
+}
+
+export function getEffectiveSoldierMaxHp(state) {
+  const base = CONFIG.SOLDIER.baseMaxHp;
+  const level = state.upgrades.soldierHealth ?? 0;
+  if (level <= 0) return base;
+  const { hpPerLevel } = CONFIG.SHOP.powers.soldierHealth;
+  return base + level * hpPerLevel;
+}
+
+export function getEffectiveSoldierDamage(state) {
+  const base = CONFIG.SOLDIER.baseDamage;
+  const level = state.upgrades.soldierDamage ?? 0;
+  if (level <= 0) return base;
+  const { damagePerLevel } = CONFIG.SHOP.powers.soldierDamage;
+  return base + level * damagePerLevel;
 }
 
 export function getPowerDefinition(powerId) {
@@ -34,12 +81,20 @@ export function listShopPowerIds() {
 }
 
 export function getUpgradeCost(powerId, currentLevel) {
+  if (powerId === RECRUIT_POWER_ID) {
+    return getRecruitSoldierCost();
+  }
+  if (powerId === UNLOCK_TOWER_POWER_ID) {
+    if (currentLevel >= CONFIG.TOWER.count) return null;
+    const power = getPowerDefinition(powerId);
+    return Math.round(power.baseCost * CONFIG.SHOP.costScale ** currentLevel);
+  }
   const power = getPowerDefinition(powerId);
   if (currentLevel >= CONFIG.SHOP.maxLevel) return null;
   return Math.round(power.baseCost * CONFIG.SHOP.costScale ** currentLevel);
 }
 
-export function getNextLevelDescription(powerId, currentLevel) {
+export function getNextLevelDescription(powerId, currentLevel, state = null) {
   const power = getPowerDefinition(powerId);
   const next = currentLevel + 1;
   if (next > CONFIG.SHOP.maxLevel) return 'MAX';
@@ -71,7 +126,43 @@ export function getNextLevelDescription(powerId, currentLevel) {
   if (powerId === 'playerDamage') {
     return `Lv${next}: +${power.damagePerLevel} bullet damage per shot`;
   }
+  if (powerId === 'recruitSoldier') {
+    const hp = state ? getEffectiveSoldierMaxHp(state) : CONFIG.SOLDIER.baseMaxHp;
+    const dmg = state ? getEffectiveSoldierDamage(state) : CONFIG.SOLDIER.baseDamage;
+    return `Spawn ally · ${hp} HP · ${dmg} dmg/shot`;
+  }
+  if (powerId === 'soldierHealth') {
+    const maxHp = getEffectiveSoldierMaxHpFromLevel(next);
+    return `Lv${next}: new recruits ${maxHp} max HP (existing unchanged)`;
+  }
+  if (powerId === 'soldierDamage') {
+    const dmg = getEffectiveSoldierDamageFromLevel(next);
+    return `Lv${next}: new recruits ${dmg} damage (existing unchanged)`;
+  }
+  if (powerId === 'unlockTower') {
+    const slot = next;
+    return `Slot ${slot}/${CONFIG.TOWER.count} · auto-turret around base`;
+  }
+  if (powerId === 'towerDamage') {
+    const dmg =
+      CONFIG.TOWER.damage + next * CONFIG.SHOP.powers.towerDamage.damagePerLevel;
+    return `Lv${next}: ${dmg} damage per tower shot`;
+  }
   return '';
+}
+
+function getEffectiveSoldierMaxHpFromLevel(soldierHealthLevel) {
+  const base = CONFIG.SOLDIER.baseMaxHp;
+  if (soldierHealthLevel <= 0) return base;
+  const { hpPerLevel } = CONFIG.SHOP.powers.soldierHealth;
+  return base + soldierHealthLevel * hpPerLevel;
+}
+
+function getEffectiveSoldierDamageFromLevel(soldierDamageLevel) {
+  const base = CONFIG.SOLDIER.baseDamage;
+  if (soldierDamageLevel <= 0) return base;
+  const { damagePerLevel } = CONFIG.SHOP.powers.soldierDamage;
+  return base + soldierDamageLevel * damagePerLevel;
 }
 
 function applyUpgradeEffects(state, powerId) {
@@ -89,7 +180,32 @@ function applyUpgradeEffects(state, powerId) {
   }
 }
 
+/** Set by logic.js to spawn recruits without a circular import. */
+let recruitSoldierHandler = null;
+
+export function setRecruitSoldierHandler(handler) {
+  recruitSoldierHandler = handler;
+}
+
 export function tryPurchaseUpgrade(state, powerId) {
+  if (powerId === RECRUIT_POWER_ID) {
+    const cost = getRecruitSoldierCost();
+    if (state.score < cost || !recruitSoldierHandler) return false;
+    state.score -= cost;
+    recruitSoldierHandler(state);
+    return true;
+  }
+
+  if (powerId === UNLOCK_TOWER_POWER_ID) {
+    const unlocked = getUnlockedTowerCount(state);
+    if (unlocked >= CONFIG.TOWER.count) return false;
+    const cost = getUpgradeCost(powerId, unlocked);
+    if (cost === null || state.score < cost) return false;
+    state.score -= cost;
+    state.upgrades.unlockedTowerCount = unlocked + 1;
+    return true;
+  }
+
   const level = state.upgrades[powerId] ?? 0;
   if (level >= CONFIG.SHOP.maxLevel) return false;
 

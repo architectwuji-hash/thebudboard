@@ -94,6 +94,32 @@ export const CONFIG = {
     healthStrokeWidth: 1,
   },
 
+  SOLDIER: {
+    radius: 11,
+    /** World-units per second when closing on enemies. */
+    speed: 180,
+    baseMaxHp: 55,
+    /** Flat damage per soldier bullet (before shop soldierDamage levels). */
+    baseDamage: 18,
+    fireCooldownSeconds: 0.38,
+    autoAimRange: 220,
+    /** Max Y is the player combat lane (same standoff as the player). */
+    standoffAboveWall: 4,
+    /** Random spawn offset around the player when recruited. */
+    spawnOffsetX: 36,
+    spawnOffsetY: 12,
+    hpBarWidth: 28,
+    hpBarHeight: 4,
+    hpBarOffsetY: 10,
+    hpBarBg: 'rgba(15, 23, 42, 0.75)',
+    hpBarFill: '#3b82f6',
+    hpBarBorder: 'rgba(148, 163, 184, 0.5)',
+    hpFont: '600 10px system-ui, sans-serif',
+    hpColor: '#e2e8f0',
+    /** Seconds before the same enemy can damage this soldier again. */
+    contactCooldownSeconds: 0.85,
+  },
+
   ENEMY: {
     radius: 12,
     fill: '#ef4444',
@@ -228,6 +254,9 @@ export const CONFIG = {
     towerColor: 0x374151,
     towerEmissive: 0x1f2937,
     towerEmissiveIntensity: 0.5,
+    soldierColor: 0x1e3a8a,
+    soldierEmissive: 0x1e40af,
+    soldierEmissiveIntensity: 0.18,
   },
 
   CANVAS: {
@@ -323,6 +352,39 @@ export const CONFIG = {
         damagePerLevel: 10,
         accent: '#dc2626',
       },
+      recruitSoldier: {
+        name: 'Recruit Soldier',
+        shortLabel: 'RS',
+        baseCost: 15,
+        accent: '#6366f1',
+      },
+      soldierHealth: {
+        name: 'Soldier Health',
+        shortLabel: 'SH',
+        baseCost: 9,
+        hpPerLevel: 18,
+        accent: '#60a5fa',
+      },
+      soldierDamage: {
+        name: 'Soldier Damage',
+        shortLabel: 'SD',
+        baseCost: 10,
+        damagePerLevel: 6,
+        accent: '#818cf8',
+      },
+      unlockTower: {
+        name: 'Unlock Tower',
+        shortLabel: 'UT',
+        baseCost: 14,
+        accent: '#64748b',
+      },
+      towerDamage: {
+        name: 'Tower Damage',
+        shortLabel: 'TD',
+        baseCost: 10,
+        damagePerLevel: 8,
+        accent: '#78716c',
+      },
     },
     button: {
       label: 'Shop',
@@ -340,7 +402,7 @@ export const CONFIG = {
     overlay: {
       margin: 16,
       panelMaxWidth: 360,
-      panelHeight: 548,
+      panelHeight: 810,
       panelPaddingX: 16,
       headerHeight: 56,
       footerHeight: 56,

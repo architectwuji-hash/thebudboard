@@ -4,6 +4,11 @@ import {
   getEffectiveAutoAimRange,
   getEffectiveBulletDamage,
   getEffectiveFireCooldownSeconds,
+  getEffectiveSoldierDamage,
+  getEffectiveSoldierMaxHp,
+  getEffectiveTowerDamage,
+  getUnlockedTowerCount,
+  setRecruitSoldierHandler,
   updateMagnetPickups,
 } from './shop.js';
 
@@ -15,6 +20,7 @@ let nextEnemyId = 1;
 let nextPickupId = 1;
 let nextBulletId = 1;
 let nextEnemyBulletId = 1;
+let nextSoldierId = 1;
 
 function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
   const scale = CONFIG.WORLD.viewportScale;
@@ -108,6 +114,11 @@ function playerLaneY(wallY) {
   return wallY - radius - standoffAboveWall;
 }
 
+function soldierLaneY(wallY) {
+  const { radius, standoffAboveWall } = CONFIG.SOLDIER;
+  return wallY - radius - standoffAboveWall;
+}
+
 function baseCastlePosition(worldWidth, viewportHeight, wallY) {
   return {
     x: worldWidth / 2,
@@ -173,7 +184,7 @@ function unlockedTowerSlotCount(state) {
 
 function isTowerActive(state, tower, index) {
   if (index >= unlockedTowerSlotCount(state)) return false;
-  return (tower.hp ?? 0) > 0;
+  return (tower.hp ?? CONFIG.TOWER.maxHp) > 0;
 }
 
 function findNearestActiveTowerTarget(state, enemy) {
@@ -245,6 +256,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     bullets: [],
     enemyBullets: [],
     enemies: [],
+    soldiers: [],
     pickups: [],
     score: 0,
     shopOpen: false,
@@ -305,6 +317,9 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
   for (const pickup of state.pickups) {
     pickup.y += dy;
   }
+  for (const soldier of state.soldiers) {
+    soldier.y += dy;
+  }
 
   state.viewportWidth = viewportWidth;
   state.viewportHeight = viewportHeight;
@@ -336,12 +351,16 @@ export function updateGameState(state, deltaSeconds, movement) {
 
   updateEnemies(state, deltaSeconds);
   clampEnemyPositions(state);
+  updateSoldiers(state, deltaSeconds);
+  clampSoldierPositions(state);
   resolveEnemyTowerContact(state, deltaSeconds);
   resolveEnemyWallBreaches(state);
   resolveEnemyPlayerContact(state, deltaSeconds);
+  resolveEnemySoldierContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
   updateTowerCombat(state, deltaSeconds);
   updateEnemyCombat(state, deltaSeconds);
+  updateSoldierCombat(state, deltaSeconds);
   updateBullets(state, deltaSeconds);
   updateEnemyBullets(state, deltaSeconds);
   markGameOverIfBaseDestroyed(state);
@@ -400,6 +419,27 @@ function updateSpawns(state, deltaSeconds) {
     }
     state.spawnTimerRemaining += spawnIntervalSeconds;
   }
+}
+
+export function recruitSoldier(state) {
+  const { radius, spawnOffsetX, spawnOffsetY } = CONFIG.SOLDIER;
+  const maxHp = getEffectiveSoldierMaxHp(state);
+  const damage = getEffectiveSoldierDamage(state);
+  const laneY = soldierLaneY(state.wallY);
+
+  const offsetX = (Math.random() - 0.5) * 2 * spawnOffsetX;
+  const offsetY = (Math.random() - 0.5) * 2 * spawnOffsetY;
+
+  state.soldiers.push({
+    id: nextSoldierId++,
+    x: clampXInPlayArea(state, state.player.x + offsetX, radius),
+    y: Math.min(laneY, Math.max(radius, state.player.y + offsetY)),
+    hp: maxHp,
+    maxHp,
+    damage,
+    fireCooldownRemaining: 0,
+    enemyContactCooldown: 0,
+  });
 }
 
 function spawnXAtTopEdge(state, radius) {
@@ -751,12 +791,130 @@ function spawnPlayerBullet(state, aimX, aimY) {
   );
 }
 
+function updateSoldiers(state, deltaSeconds) {
+  const { speed, autoAimRange } = CONFIG.SOLDIER;
+  const laneY = soldierLaneY(state.wallY);
+  const minY = CONFIG.SOLDIER.radius;
+
+  for (const soldier of state.soldiers) {
+    const target = findNearestEnemy(soldier.x, soldier.y, autoAimRange * 1.35, state.enemies);
+    if (!target) continue;
+
+    const dx = target.x - soldier.x;
+    const dy = target.y - soldier.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.001) continue;
+
+    const inFireRange = dist <= autoAimRange;
+    if (inFireRange) continue;
+
+    const step = speed * deltaSeconds;
+    const move = Math.min(step, dist);
+    soldier.x += (dx / dist) * move;
+    soldier.y += (dy / dist) * move;
+    soldier.y = Math.min(laneY, Math.max(minY, soldier.y));
+  }
+}
+
+function clampSoldierPositions(state) {
+  const { radius } = CONFIG.SOLDIER;
+  const laneY = soldierLaneY(state.wallY);
+  const minY = radius;
+
+  for (const soldier of state.soldiers) {
+    soldier.x = clampXInPlayArea(state, soldier.x, radius);
+    soldier.y = Math.min(laneY, Math.max(minY, soldier.y));
+  }
+}
+
+function findNearestEnemy(originX, originY, maxRange, enemies) {
+  let bestDist = maxRange;
+  let best = null;
+
+  for (const enemy of enemies) {
+    const dx = enemy.x - originX;
+    const dy = enemy.y - originY;
+    const dist = Math.hypot(dx, dy);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = enemy;
+    }
+  }
+
+  return best;
+}
+
+function updateSoldierCombat(state, deltaSeconds) {
+  const { autoAimRange, fireCooldownSeconds, radius } = CONFIG.SOLDIER;
+
+  for (const soldier of state.soldiers) {
+    soldier.fireCooldownRemaining = Math.max(
+      0,
+      soldier.fireCooldownRemaining - deltaSeconds,
+    );
+    if (soldier.fireCooldownRemaining > 0) continue;
+
+    const aim = findAutoAimTargetFrom(
+      soldier.x,
+      soldier.y,
+      autoAimRange,
+      state.enemies,
+    );
+    if (!aim) continue;
+
+    spawnBullet(
+      state,
+      soldier.x,
+      soldier.y,
+      radius,
+      aim.aimX,
+      aim.aimY,
+      soldier.damage,
+    );
+    soldier.fireCooldownRemaining = fireCooldownSeconds;
+  }
+}
+
+function resolveEnemySoldierContact(state, deltaSeconds) {
+  const { radius: enemyRadius, contactDamage } = CONFIG.ENEMY;
+  const soldierRadius = CONFIG.SOLDIER.radius;
+  const { contactCooldownSeconds } = CONFIG.SOLDIER;
+
+  for (const soldier of state.soldiers) {
+    soldier.enemyContactCooldown = Math.max(
+      0,
+      soldier.enemyContactCooldown - deltaSeconds,
+    );
+
+    for (const enemy of state.enemies) {
+      if (
+        circlesOverlap(
+          enemy.x,
+          enemy.y,
+          enemyRadius,
+          soldier.x,
+          soldier.y,
+          soldierRadius,
+        ) &&
+        soldier.enemyContactCooldown <= 0
+      ) {
+        soldier.hp = Math.max(0, soldier.hp - contactDamage);
+        soldier.enemyContactCooldown = contactCooldownSeconds;
+        break;
+      }
+    }
+  }
+
+  state.soldiers = state.soldiers.filter((soldier) => soldier.hp > 0);
+}
+
 function updateTowerCombat(state, deltaSeconds) {
-  const { range, fireCooldownSeconds, damage, radius } = CONFIG.TOWER;
+  const { range, fireCooldownSeconds, radius } = CONFIG.TOWER;
+  const damage = getEffectiveTowerDamage(state);
 
   for (let i = 0; i < state.towers.length; i += 1) {
     const tower = state.towers[i];
-    if (!isTowerActive(state, tower, i)) continue;
+    if (!tower || !isTowerActive(state, tower, i)) continue;
 
     tower.fireCooldownRemaining = Math.max(
       0,
@@ -866,3 +1024,5 @@ function clampPlayerToWorld(state) {
   state.player.x = clampXInPlayArea(state, state.player.x, r);
   state.player.y = Math.min(laneY, Math.max(minY, state.player.y));
 }
+
+setRecruitSoldierHandler(recruitSoldier);
