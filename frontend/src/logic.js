@@ -14,6 +14,7 @@ import {
 let nextEnemyId = 1;
 let nextPickupId = 1;
 let nextBulletId = 1;
+let nextEnemyBulletId = 1;
 
 function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
   const scale = CONFIG.WORLD.viewportScale;
@@ -187,6 +188,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     base,
     player,
     bullets: [],
+    enemyBullets: [],
     enemies: [],
     pickups: [],
     score: 0,
@@ -241,6 +243,9 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
   for (const bullet of state.bullets) {
     bullet.y += dy;
   }
+  for (const bullet of state.enemyBullets) {
+    bullet.y += dy;
+  }
   for (const pickup of state.pickups) {
     pickup.y += dy;
   }
@@ -280,7 +285,9 @@ export function updateGameState(state, deltaSeconds, movement) {
   resolveEnemyPlayerContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
   updateTowerCombat(state, deltaSeconds);
+  updateEnemyCombat(state, deltaSeconds);
   updateBullets(state, deltaSeconds);
+  updateEnemyBullets(state, deltaSeconds);
   markGameOverIfBaseDestroyed(state);
 }
 
@@ -340,6 +347,7 @@ function createEnemyAtTopEdge(state) {
     maxHp: CONFIG.ENEMY.maxHp,
     playerContactCooldown: 0,
     towerContactCooldown: 0,
+    fireCooldownRemaining: 0,
   };
 }
 
@@ -366,6 +374,139 @@ function pickEnemyTarget(state, enemy, wallPoint) {
   const towerTarget = findNearestActiveTowerTarget(state, enemy);
   if (towerTarget) return towerTarget;
   return wallPoint;
+}
+
+/** Player first if in range, else nearest active tower, else the wall gate. */
+function pickEnemyShootTarget(state, enemy, wallPoint) {
+  const { range } = CONFIG.ENEMY_BULLET;
+  const playerRadius = CONFIG.PLAYER.radius;
+
+  const playerDx = state.player.x - enemy.x;
+  const playerDy = state.player.y - enemy.y;
+  const playerDist = Math.hypot(playerDx, playerDy);
+  const playerReach = range + playerRadius;
+  if (playerDist <= playerReach && playerDist > 0.001) {
+    return { x: state.player.x, y: state.player.y };
+  }
+
+  const towerTarget = findNearestActiveTowerTarget(state, enemy);
+  if (towerTarget) {
+    const dx = towerTarget.x - enemy.x;
+    const dy = towerTarget.y - enemy.y;
+    if (Math.hypot(dx, dy) <= range) return towerTarget;
+  }
+
+  const wallDx = wallPoint.x - enemy.x;
+  const wallDy = wallPoint.y - enemy.y;
+  if (Math.hypot(wallDx, wallDy) <= range) return wallPoint;
+
+  return null;
+}
+
+function updateEnemyCombat(state, deltaSeconds) {
+  const { fireCooldownSeconds } = CONFIG.ENEMY_BULLET;
+  const wallPoint = wallTargetPoint(state);
+
+  for (const enemy of state.enemies) {
+    enemy.fireCooldownRemaining = Math.max(
+      0,
+      enemy.fireCooldownRemaining - deltaSeconds,
+    );
+    if (enemy.fireCooldownRemaining > 0) continue;
+
+    const target = pickEnemyShootTarget(state, enemy, wallPoint);
+    if (!target) continue;
+
+    const dx = target.x - enemy.x;
+    const dy = target.y - enemy.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.001) continue;
+
+    spawnEnemyBullet(state, enemy, dx / dist, dy / dist);
+    enemy.fireCooldownRemaining = fireCooldownSeconds;
+  }
+}
+
+function spawnEnemyBullet(state, enemy, aimX, aimY) {
+  const { radius: bulletRadius, damage } = CONFIG.ENEMY_BULLET;
+  const spawnOffset = CONFIG.ENEMY.radius + bulletRadius + 2;
+
+  state.enemyBullets.push({
+    id: nextEnemyBulletId++,
+    x: enemy.x + aimX * spawnOffset,
+    y: enemy.y + aimY * spawnOffset,
+    vx: aimX,
+    vy: aimY,
+    damage,
+  });
+}
+
+function updateEnemyBullets(state, deltaSeconds) {
+  const {
+    speed,
+    cullMargin,
+    radius: bulletRadius,
+    damage: defaultDamage,
+  } = CONFIG.ENEMY_BULLET;
+  const playerRadius = CONFIG.PLAYER.radius;
+  const towerRadius = CONFIG.TOWER.radius;
+  const maxX = state.worldWidth + cullMargin;
+  const maxY = state.worldHeight + cullMargin;
+  const min = -cullMargin;
+
+  const remaining = [];
+
+  for (const bullet of state.enemyBullets) {
+    bullet.x += bullet.vx * speed * deltaSeconds;
+    bullet.y += bullet.vy * speed * deltaSeconds;
+
+    if (bullet.x < min || bullet.x > maxX || bullet.y < min || bullet.y > maxY) {
+      continue;
+    }
+
+    const dmg = bullet.damage ?? defaultDamage;
+    let consumed = false;
+
+    if (
+      circlesOverlap(
+        bullet.x,
+        bullet.y,
+        bulletRadius,
+        state.player.x,
+        state.player.y,
+        playerRadius,
+      )
+    ) {
+      state.player.hp = Math.max(0, state.player.hp - dmg);
+      consumed = true;
+    }
+
+    if (!consumed) {
+      for (let i = 0; i < state.towers.length; i += 1) {
+        const tower = state.towers[i];
+        if (!isTowerActive(state, tower, i)) continue;
+
+        if (
+          circlesOverlap(
+            bullet.x,
+            bullet.y,
+            bulletRadius,
+            tower.x,
+            tower.y,
+            towerRadius,
+          )
+        ) {
+          tower.hp = Math.max(0, tower.hp - dmg);
+          consumed = true;
+          break;
+        }
+      }
+    }
+
+    if (!consumed) remaining.push(bullet);
+  }
+
+  state.enemyBullets = remaining;
 }
 
 function resolveEnemyTowerContact(state, deltaSeconds) {

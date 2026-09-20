@@ -109,6 +109,22 @@ export const CONFIG = {
     hpColor: '#ffffff',
   },
 
+  /** Projectiles fired by enemies toward player, towers, or the wall line. */
+  ENEMY_BULLET: {
+    radius: 4,
+    fill: '#f87171',
+    stroke: '#fecaca',
+    strokeWidth: 1,
+    /** World-units per second. */
+    speed: 300,
+    damage: 9,
+    /** Max distance to acquire a target and fire. */
+    range: 300,
+    /** Minimum seconds between shots per enemy. */
+    fireCooldownSeconds: 1.35,
+    cullMargin: 24,
+  },
+
   /** World matches viewport so layout bands align with the screen. */
   WORLD: {
     viewportScale: 1,
@@ -140,6 +156,9 @@ export const CONFIG = {
     bulletColor: 0x422006,
     bulletEmissive: 0xca8a04,
     bulletEmissiveIntensity: 1.1,
+    enemyBulletColor: 0x450a0a,
+    enemyBulletEmissive: 0xef4444,
+    enemyBulletEmissiveIntensity: 0.95,
     pickupColor: 0x713f12,
     pickupEmissive: 0xb45309,
     pickupEmissiveIntensity: 0.85,

@@ -212,6 +212,14 @@ export function createSceneGraph() {
     metalness: 0.06,
   });
 
+  const enemyBulletMat = new THREE.MeshStandardMaterial({
+    color: R3.enemyBulletColor,
+    emissive: R3.enemyBulletEmissive,
+    emissiveIntensity: R3.enemyBulletEmissiveIntensity,
+    roughness: 0.28,
+    metalness: 0.08,
+  });
+
   const pickupMat = new THREE.MeshStandardMaterial({
     color: R3.pickupColor,
     emissive: R3.pickupEmissive,
@@ -222,6 +230,7 @@ export function createSceneGraph() {
 
   const enemyMeshes = new Map();
   const bulletMeshes = new Map();
+  const enemyBulletMeshes = new Map();
   const pickupMeshes = new Map();
   let enemyInstanced = null;
   const dummy = new THREE.Object3D();
@@ -265,6 +274,8 @@ export function createSceneGraph() {
     bulletGeo,
     bulletMat,
     bulletMeshes,
+    enemyBulletMat,
+    enemyBulletMeshes,
     pickupMat,
     pickupMeshes,
     dummy,
@@ -471,34 +482,69 @@ function syncEnemies(graph, state, cameraScroll, viewportWidth, viewportHeight) 
   }
 }
 
-function syncBullets(graph, state, cameraScroll, viewportWidth, viewportHeight) {
-  const maxY = state.wallY;
-  const visible = state.bullets.filter((b) => b.y <= maxY);
+function syncBulletPool(
+  graph,
+  bullets,
+  meshMap,
+  material,
+  radiusPx,
+  cameraScroll,
+  viewportWidth,
+  viewportHeight,
+  maxY,
+) {
+  const visible = bullets.filter((b) => b.y <= maxY);
   const live = new Set(visible.map((b) => b.id));
 
-  for (const [id, mesh] of graph.bulletMeshes) {
+  for (const [id, mesh] of meshMap) {
     if (!live.has(id)) {
       graph.scene.remove(mesh);
-      graph.bulletMeshes.delete(id);
+      meshMap.delete(id);
     }
   }
 
   for (const bullet of visible) {
-    let mesh = graph.bulletMeshes.get(bullet.id);
+    let mesh = meshMap.get(bullet.id);
     if (!mesh) {
-      mesh = new THREE.Mesh(graph.bulletGeo, graph.bulletMat);
+      mesh = new THREE.Mesh(graph.bulletGeo, material);
       mesh.castShadow = true;
-      graph.bulletMeshes.set(bullet.id, mesh);
+      meshMap.set(bullet.id, mesh);
       graph.scene.add(mesh);
     }
     const view = entityViewPos(bullet, cameraScroll);
     const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
-    const r = pxToWorld(CONFIG.BULLET.radius);
+    const r = pxToWorld(radiusPx);
     mesh.position.set(pos.x, r, pos.z);
     mesh.rotation.y = Math.atan2(bullet.vx, bullet.vy);
     mesh.rotation.x = Math.PI / 2;
     mesh.scale.set(r, r, r);
   }
+}
+
+function syncBullets(graph, state, cameraScroll, viewportWidth, viewportHeight) {
+  const maxY = state.wallY;
+  syncBulletPool(
+    graph,
+    state.bullets,
+    graph.bulletMeshes,
+    graph.bulletMat,
+    CONFIG.BULLET.radius,
+    cameraScroll,
+    viewportWidth,
+    viewportHeight,
+    maxY,
+  );
+  syncBulletPool(
+    graph,
+    state.enemyBullets ?? [],
+    graph.enemyBulletMeshes,
+    graph.enemyBulletMat,
+    CONFIG.ENEMY_BULLET.radius,
+    cameraScroll,
+    viewportWidth,
+    viewportHeight,
+    maxY,
+  );
 }
 
 function syncPickups(graph, state, cameraScroll, viewportWidth, viewportHeight) {
