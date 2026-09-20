@@ -55,11 +55,14 @@ export const CONFIG = {
   /** Five static turrets orbiting the base (logic positions, render meshes). */
   TOWER: {
     count: 5,
-    orbitRadius: 78,
+    /** Outside the base sphere (BASE.radius 45 + tower radius + margin). */
+    orbitRadius: 96,
+    orbitMarginFromBase: 18,
     /** Arc above the base (radians; −π/2 points toward top of screen). */
     arcStartRad: -2.75,
     arcEndRad: -0.39,
-    radius: 11,
+    radius: 14,
+    maxHp: 120,
     range: 340,
     fireCooldownSeconds: 0.5,
     damage: 24,
@@ -79,9 +82,42 @@ export const CONFIG = {
 
   PICKUP: {
     radius: 8,
+    /** HP restored when the player collects a health drop. */
+    healAmount: 12,
+    /** Score granted when an enemy dies (shop currency). */
+    scoreOnKill: 1,
     fill: '#facc15',
     stroke: '#ca8a04',
     strokeWidth: 1,
+    healthFill: '#4ade80',
+    healthStroke: '#15803d',
+    healthStrokeWidth: 1,
+  },
+
+  SOLDIER: {
+    radius: 11,
+    /** World-units per second when closing on enemies. */
+    speed: 180,
+    baseMaxHp: 55,
+    /** Flat damage per soldier bullet (before shop soldierDamage levels). */
+    baseDamage: 18,
+    fireCooldownSeconds: 0.38,
+    autoAimRange: 220,
+    /** Max Y is the player combat lane (same standoff as the player). */
+    standoffAboveWall: 4,
+    /** Random spawn offset around the player when recruited. */
+    spawnOffsetX: 36,
+    spawnOffsetY: 12,
+    hpBarWidth: 28,
+    hpBarHeight: 4,
+    hpBarOffsetY: 10,
+    hpBarBg: 'rgba(15, 23, 42, 0.75)',
+    hpBarFill: '#3b82f6',
+    hpBarBorder: 'rgba(148, 163, 184, 0.5)',
+    hpFont: '600 10px system-ui, sans-serif',
+    hpColor: '#e2e8f0',
+    /** Seconds before the same enemy can damage this soldier again. */
+    contactCooldownSeconds: 0.85,
   },
 
   ENEMY: {
@@ -90,37 +126,55 @@ export const CONFIG = {
     stroke: '#fecaca',
     strokeWidth: 2,
     maxHp: 68,
-    /** World-units per second toward wall or player (whichever is closer). */
+    /** World-units per second toward active towers, then the wall gate. */
     speed: 95,
     /** Damage applied when breaching the wall or touching the player. */
     contactDamage: 12,
+    /** Added to maxHp for each wave after wave 1 (wave 1 uses maxHp as-is). */
+    hpPerWave: 7,
+    /** Added to contactDamage for each wave after wave 1. */
+    contactDamagePerWave: 2,
+    /** Damage per hit when an enemy melee-strikes an active tower. */
+    towerContactDamage: 14,
+    /** Seconds before the same enemy can damage a tower again. */
+    towerContactCooldownSeconds: 0.75,
     /** Seconds before the same enemy can damage the player again. */
     contactCooldownSeconds: 0.85,
     /** Delay between spawning each enemy within the same wave. */
     spawnIntervalSeconds: 0.85,
     /** Pause after clearing a wave before the next wave begins. */
     interWaveDelaySeconds: 2,
-    /** Every N waves (5, 10, 15, …) grunt HP and contact damage increase. */
-    scalingEveryNWaves: 5,
-    hpPerTier: 14,
-    contactDamagePerTier: 2,
     hpFont: 'bold 11px system-ui, sans-serif',
     hpColor: '#ffffff',
   },
 
-  /** One boss per wave when wave number is a multiple of everyNWaves. */
+  /** One boss spawns first on every wave that is a multiple of everyNWaves. */
   BOSS: {
     everyNWaves: 10,
-    maxHp: 420,
-    /** Added for each boss tier (wave 20, 30, …). */
-    maxHpPerTier: 160,
     radius: 22,
+    /** World-units per second (bosses use the same tower-then-wall targeting as grunts). */
     speed: 78,
+    maxHp: 420,
     contactDamage: 26,
     contactCooldownSeconds: 0.85,
-    /** Added per scaling tier (same cadence as ENEMY.scalingEveryNWaves). */
-    hpPerTier: 48,
-    contactDamagePerTier: 4,
+    hpPerWave: 22,
+    contactDamagePerWave: 3,
+  },
+
+  /** Projectiles fired by enemies toward player, towers, or the wall line. */
+  ENEMY_BULLET: {
+    radius: 4,
+    fill: '#f87171',
+    stroke: '#fecaca',
+    strokeWidth: 1,
+    /** World-units per second. */
+    speed: 300,
+    damage: 9,
+    /** Max distance to acquire a target and fire. */
+    range: 300,
+    /** Minimum seconds between shots per enemy. */
+    fireCooldownSeconds: 1.35,
+    cullMargin: 24,
   },
 
   /** World matches viewport so layout bands align with the screen. */
@@ -158,9 +212,15 @@ export const CONFIG = {
     bulletColor: 0x422006,
     bulletEmissive: 0xca8a04,
     bulletEmissiveIntensity: 1.1,
+    enemyBulletColor: 0x450a0a,
+    enemyBulletEmissive: 0xef4444,
+    enemyBulletEmissiveIntensity: 0.95,
     pickupColor: 0x713f12,
     pickupEmissive: 0xb45309,
     pickupEmissiveIntensity: 0.85,
+    healthPickupColor: 0x22c55e,
+    healthPickupEmissive: 0x15803d,
+    healthPickupEmissiveIntensity: 0.95,
     wallColor: 0xc4cad4,
     wallRoughness: 0.55,
     wallMetalness: 0.12,
@@ -193,7 +253,10 @@ export const CONFIG = {
     enemyInstancedThreshold: 10,
     towerColor: 0x374151,
     towerEmissive: 0x1f2937,
-    towerEmissiveIntensity: 0.2,
+    towerEmissiveIntensity: 0.5,
+    soldierColor: 0x1e3a8a,
+    soldierEmissive: 0x1e40af,
+    soldierEmissiveIntensity: 0.18,
   },
 
   CANVAS: {
@@ -289,6 +352,39 @@ export const CONFIG = {
         damagePerLevel: 10,
         accent: '#dc2626',
       },
+      recruitSoldier: {
+        name: 'Recruit Soldier',
+        shortLabel: 'RS',
+        baseCost: 15,
+        accent: '#6366f1',
+      },
+      soldierHealth: {
+        name: 'Soldier Health',
+        shortLabel: 'SH',
+        baseCost: 9,
+        hpPerLevel: 18,
+        accent: '#60a5fa',
+      },
+      soldierDamage: {
+        name: 'Soldier Damage',
+        shortLabel: 'SD',
+        baseCost: 10,
+        damagePerLevel: 6,
+        accent: '#818cf8',
+      },
+      unlockTower: {
+        name: 'Unlock Tower',
+        shortLabel: 'UT',
+        baseCost: 14,
+        accent: '#64748b',
+      },
+      towerDamage: {
+        name: 'Tower Damage',
+        shortLabel: 'TD',
+        baseCost: 10,
+        damagePerLevel: 8,
+        accent: '#78716c',
+      },
     },
     button: {
       label: 'Shop',
@@ -306,7 +402,7 @@ export const CONFIG = {
     overlay: {
       margin: 16,
       panelMaxWidth: 360,
-      panelHeight: 548,
+      panelHeight: 810,
       panelPaddingX: 16,
       headerHeight: 56,
       footerHeight: 56,

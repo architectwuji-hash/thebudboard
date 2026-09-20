@@ -139,6 +139,7 @@ function gameLoop(timestamp) {
     viewportHeight,
     gameState,
     input.joystick,
+    camera,
   );
 
   requestAnimationFrame(gameLoop);
