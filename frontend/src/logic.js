@@ -14,6 +14,7 @@ import {
 let nextEnemyId = 1;
 let nextPickupId = 1;
 let nextBulletId = 1;
+let nextEnemyBulletId = 1;
 
 function worldDimensionsFromViewport(viewportWidth, viewportHeight) {
   const scale = CONFIG.WORLD.viewportScale;
@@ -47,10 +48,58 @@ function clampXInPlayArea(state, x, radius) {
   return Math.min(maxX, Math.max(minX, x));
 }
 
+function enemyRadius(enemy) {
+  return enemy.isBoss ? CONFIG.BOSS.radius : CONFIG.ENEMY.radius;
+}
+
+function enemySpeed(enemy) {
+  return enemy.isBoss ? CONFIG.BOSS.speed : CONFIG.ENEMY.speed;
+}
+
+function enemyContactDamage(enemy) {
+  if (enemy.contactDamage != null) return enemy.contactDamage;
+  return enemy.isBoss ? CONFIG.BOSS.contactDamage : CONFIG.ENEMY.contactDamage;
+}
+
+function enemyContactCooldownSeconds(enemy) {
+  return enemy.isBoss
+    ? CONFIG.BOSS.contactCooldownSeconds
+    : CONFIG.ENEMY.contactCooldownSeconds;
+}
+
+/** Waves after the first; wave 1 uses CONFIG baselines with zero increment. */
+function waveScaleSteps(wave) {
+  return Math.max(0, wave - 1);
+}
+
+function gruntMaxHpForWave(wave) {
+  const steps = waveScaleSteps(wave);
+  return CONFIG.ENEMY.maxHp + steps * CONFIG.ENEMY.hpPerWave;
+}
+
+function gruntContactDamageForWave(wave) {
+  const steps = waveScaleSteps(wave);
+  return CONFIG.ENEMY.contactDamage + steps * CONFIG.ENEMY.contactDamagePerWave;
+}
+
+function bossMaxHpForWave(wave) {
+  const steps = waveScaleSteps(wave);
+  return CONFIG.BOSS.maxHp + steps * CONFIG.BOSS.hpPerWave;
+}
+
+function bossContactDamageForWave(wave) {
+  const steps = waveScaleSteps(wave);
+  return CONFIG.BOSS.contactDamage + steps * CONFIG.BOSS.contactDamagePerWave;
+}
+
+function bossesToSpawnForWave(wave) {
+  const { everyNWaves } = CONFIG.BOSS;
+  return wave > 0 && wave % everyNWaves === 0 ? 1 : 0;
+}
+
 function clampEnemyPositions(state) {
-  const { radius } = CONFIG.ENEMY;
   for (const enemy of state.enemies) {
-    enemy.x = clampXInPlayArea(state, enemy.x, radius);
+    enemy.x = clampXInPlayArea(state, enemy.x, enemyRadius(enemy));
   }
 }
 
@@ -84,6 +133,8 @@ function buildTowersAroundBase(base) {
       id: i,
       x: base.x + Math.cos(angle) * orbit,
       y: base.y + Math.sin(angle) * orbit,
+      hp: CONFIG.TOWER.maxHp,
+      maxHp: CONFIG.TOWER.maxHp,
       fireCooldownRemaining: 0,
     });
   }
@@ -111,6 +162,48 @@ function wallTargetPoint(state) {
     x: state.worldWidth / 2,
     y: state.wallY,
   };
+}
+
+/** Unlocked slot count; defaults to all towers when shop unlock is not in use. */
+function unlockedTowerSlotCount(state) {
+  const raw = state.upgrades?.unlockedTowerCount;
+  if (raw === undefined || raw === null) return CONFIG.TOWER.count;
+  return Math.min(Math.max(0, raw), CONFIG.TOWER.count);
+}
+
+function isTowerActive(state, tower, index) {
+  if (index >= unlockedTowerSlotCount(state)) return false;
+  return (tower.hp ?? 0) > 0;
+}
+
+function findNearestActiveTowerTarget(state, enemy) {
+  const { radius: towerRadius } = CONFIG.TOWER;
+  let bestDist = Infinity;
+  let bestPoint = null;
+
+  for (let i = 0; i < state.towers.length; i += 1) {
+    const tower = state.towers[i];
+    if (!isTowerActive(state, tower, i)) continue;
+
+    const dx = tower.x - enemy.x;
+    const dy = tower.y - enemy.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist >= bestDist) continue;
+
+    bestDist = dist;
+    if (dist < 0.001) {
+      bestPoint = { x: tower.x, y: tower.y };
+    } else {
+      const reach = towerRadius + enemyRadius(enemy);
+      const t = Math.max(0, (dist - reach) / dist);
+      bestPoint = {
+        x: enemy.x + dx * t,
+        y: enemy.y + dy * t,
+      };
+    }
+  }
+
+  return bestPoint;
 }
 
 /** Camera top-left in world space; fixed when world matches viewport. */
@@ -150,6 +243,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     base,
     player,
     bullets: [],
+    enemyBullets: [],
     enemies: [],
     pickups: [],
     score: 0,
@@ -159,6 +253,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     wave: 1,
     /** Enemies still to spawn for the current wave (wave N → N spawns). */
     enemiesLeftToSpawnInWave: 1,
+    bossesLeftToSpawnInWave: 0,
     waitingForNextWave: false,
     interWaveTimer: 0,
     spawnTimerRemaining: 0,
@@ -204,6 +299,9 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
   for (const bullet of state.bullets) {
     bullet.y += dy;
   }
+  for (const bullet of state.enemyBullets) {
+    bullet.y += dy;
+  }
   for (const pickup of state.pickups) {
     pickup.y += dy;
   }
@@ -238,11 +336,14 @@ export function updateGameState(state, deltaSeconds, movement) {
 
   updateEnemies(state, deltaSeconds);
   clampEnemyPositions(state);
+  resolveEnemyTowerContact(state, deltaSeconds);
   resolveEnemyWallBreaches(state);
   resolveEnemyPlayerContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
   updateTowerCombat(state, deltaSeconds);
+  updateEnemyCombat(state, deltaSeconds);
   updateBullets(state, deltaSeconds);
+  updateEnemyBullets(state, deltaSeconds);
   markGameOverIfBaseDestroyed(state);
 }
 
@@ -259,6 +360,7 @@ function updateSpawns(state, deltaSeconds) {
 
   if (
     state.enemiesLeftToSpawnInWave === 0 &&
+    state.bossesLeftToSpawnInWave === 0 &&
     state.enemies.length === 0
   ) {
     if (state.waitingForNextWave) {
@@ -268,6 +370,7 @@ function updateSpawns(state, deltaSeconds) {
       state.waitingForNextWave = false;
       state.wave += 1;
       state.enemiesLeftToSpawnInWave = state.wave;
+      state.bossesLeftToSpawnInWave = bossesToSpawnForWave(state.wave);
       state.spawnTimerRemaining = 0;
     } else {
       state.waitingForNextWave = true;
@@ -276,39 +379,78 @@ function updateSpawns(state, deltaSeconds) {
     }
   }
 
-  if (state.enemiesLeftToSpawnInWave <= 0) return;
+  if (
+    state.enemiesLeftToSpawnInWave <= 0 &&
+    state.bossesLeftToSpawnInWave <= 0
+  ) {
+    return;
+  }
 
   state.spawnTimerRemaining -= deltaSeconds;
   while (
     state.spawnTimerRemaining <= 0 &&
-    state.enemiesLeftToSpawnInWave > 0
+    (state.enemiesLeftToSpawnInWave > 0 || state.bossesLeftToSpawnInWave > 0)
   ) {
-    state.enemies.push(createEnemyAtTopEdge(state));
-    state.enemiesLeftToSpawnInWave -= 1;
+    if (state.bossesLeftToSpawnInWave > 0) {
+      state.enemies.push(createBossAtTopEdge(state));
+      state.bossesLeftToSpawnInWave -= 1;
+    } else {
+      state.enemies.push(createEnemyAtTopEdge(state));
+      state.enemiesLeftToSpawnInWave -= 1;
+    }
     state.spawnTimerRemaining += spawnIntervalSeconds;
   }
 }
 
-function createEnemyAtTopEdge(state) {
-  const { radius } = CONFIG.ENEMY;
+function spawnXAtTopEdge(state, radius) {
   const minX = state.playAreaLeft + radius;
   const maxX = state.playAreaRight - radius;
+  return minX + Math.random() * (maxX - minX);
+}
+
+function createEnemyAtTopEdge(state) {
+  const { radius } = CONFIG.ENEMY;
+  const maxHp = gruntMaxHpForWave(state.wave);
+  const contactDamage = gruntContactDamageForWave(state.wave);
 
   return {
     id: nextEnemyId++,
-    x: minX + Math.random() * (maxX - minX),
+    x: spawnXAtTopEdge(state, radius),
     y: -radius,
-    hp: CONFIG.ENEMY.maxHp,
-    maxHp: CONFIG.ENEMY.maxHp,
+    hp: maxHp,
+    maxHp,
+    contactDamage,
+    isBoss: false,
     playerContactCooldown: 0,
+    towerContactCooldown: 0,
+    fireCooldownRemaining: 0,
+  };
+}
+
+function createBossAtTopEdge(state) {
+  const { radius } = CONFIG.BOSS;
+  const maxHp = bossMaxHpForWave(state.wave);
+  const contactDamage = bossContactDamageForWave(state.wave);
+
+  return {
+    id: nextEnemyId++,
+    x: spawnXAtTopEdge(state, radius),
+    y: -radius,
+    hp: maxHp,
+    maxHp,
+    contactDamage,
+    isBoss: true,
+    playerContactCooldown: 0,
+    towerContactCooldown: 0,
+    fireCooldownRemaining: 0,
   };
 }
 
 function updateEnemies(state, deltaSeconds) {
-  const { speed } = CONFIG.ENEMY;
   const wallPoint = wallTargetPoint(state);
 
   for (const enemy of state.enemies) {
+    const speed = enemySpeed(enemy);
     const target = pickEnemyTarget(state, enemy, wallPoint);
     const dx = target.x - enemy.x;
     const dy = target.y - enemy.y;
@@ -322,27 +464,193 @@ function updateEnemies(state, deltaSeconds) {
   }
 }
 
-/** Move toward whichever of the wall center or player is closer. */
+/** Nearest active tower, else the wall gate (base breach line). */
 function pickEnemyTarget(state, enemy, wallPoint) {
-  const toWall = Math.hypot(wallPoint.x - enemy.x, wallPoint.y - enemy.y);
-  const toPlayer = Math.hypot(state.player.x - enemy.x, state.player.y - enemy.y);
-  return toPlayer < toWall ? state.player : wallPoint;
+  const towerTarget = findNearestActiveTowerTarget(state, enemy);
+  if (towerTarget) return towerTarget;
+  return wallPoint;
+}
+
+/** Player first if in range, else nearest active tower, else the wall gate. */
+function pickEnemyShootTarget(state, enemy, wallPoint) {
+  const { range } = CONFIG.ENEMY_BULLET;
+  const playerRadius = CONFIG.PLAYER.radius;
+
+  const playerDx = state.player.x - enemy.x;
+  const playerDy = state.player.y - enemy.y;
+  const playerDist = Math.hypot(playerDx, playerDy);
+  const playerReach = range + playerRadius;
+  if (playerDist <= playerReach && playerDist > 0.001) {
+    return { x: state.player.x, y: state.player.y };
+  }
+
+  const towerTarget = findNearestActiveTowerTarget(state, enemy);
+  if (towerTarget) {
+    const dx = towerTarget.x - enemy.x;
+    const dy = towerTarget.y - enemy.y;
+    if (Math.hypot(dx, dy) <= range) return towerTarget;
+  }
+
+  const wallDx = wallPoint.x - enemy.x;
+  const wallDy = wallPoint.y - enemy.y;
+  if (Math.hypot(wallDx, wallDy) <= range) return wallPoint;
+
+  return null;
+}
+
+function updateEnemyCombat(state, deltaSeconds) {
+  const { fireCooldownSeconds } = CONFIG.ENEMY_BULLET;
+  const wallPoint = wallTargetPoint(state);
+
+  for (const enemy of state.enemies) {
+    enemy.fireCooldownRemaining = Math.max(
+      0,
+      enemy.fireCooldownRemaining - deltaSeconds,
+    );
+    if (enemy.fireCooldownRemaining > 0) continue;
+
+    const target = pickEnemyShootTarget(state, enemy, wallPoint);
+    if (!target) continue;
+
+    const dx = target.x - enemy.x;
+    const dy = target.y - enemy.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.001) continue;
+
+    spawnEnemyBullet(state, enemy, dx / dist, dy / dist);
+    enemy.fireCooldownRemaining = fireCooldownSeconds;
+  }
+}
+
+function spawnEnemyBullet(state, enemy, aimX, aimY) {
+  const { radius: bulletRadius, damage } = CONFIG.ENEMY_BULLET;
+  const spawnOffset = enemyRadius(enemy) + bulletRadius + 2;
+
+  state.enemyBullets.push({
+    id: nextEnemyBulletId++,
+    x: enemy.x + aimX * spawnOffset,
+    y: enemy.y + aimY * spawnOffset,
+    vx: aimX,
+    vy: aimY,
+    damage,
+  });
+}
+
+function updateEnemyBullets(state, deltaSeconds) {
+  const {
+    speed,
+    cullMargin,
+    radius: bulletRadius,
+    damage: defaultDamage,
+  } = CONFIG.ENEMY_BULLET;
+  const playerRadius = CONFIG.PLAYER.radius;
+  const towerRadius = CONFIG.TOWER.radius;
+  const maxX = state.worldWidth + cullMargin;
+  const maxY = state.worldHeight + cullMargin;
+  const min = -cullMargin;
+
+  const remaining = [];
+
+  for (const bullet of state.enemyBullets) {
+    bullet.x += bullet.vx * speed * deltaSeconds;
+    bullet.y += bullet.vy * speed * deltaSeconds;
+
+    if (bullet.x < min || bullet.x > maxX || bullet.y < min || bullet.y > maxY) {
+      continue;
+    }
+
+    const dmg = bullet.damage ?? defaultDamage;
+    let consumed = false;
+
+    if (
+      circlesOverlap(
+        bullet.x,
+        bullet.y,
+        bulletRadius,
+        state.player.x,
+        state.player.y,
+        playerRadius,
+      )
+    ) {
+      state.player.hp = Math.max(0, state.player.hp - dmg);
+      consumed = true;
+    }
+
+    if (!consumed) {
+      for (let i = 0; i < state.towers.length; i += 1) {
+        const tower = state.towers[i];
+        if (!isTowerActive(state, tower, i)) continue;
+
+        if (
+          circlesOverlap(
+            bullet.x,
+            bullet.y,
+            bulletRadius,
+            tower.x,
+            tower.y,
+            towerRadius,
+          )
+        ) {
+          tower.hp = Math.max(0, tower.hp - dmg);
+          consumed = true;
+          break;
+        }
+      }
+    }
+
+    if (!consumed) remaining.push(bullet);
+  }
+
+  state.enemyBullets = remaining;
+}
+
+function resolveEnemyTowerContact(state, deltaSeconds) {
+  const { towerContactDamage, towerContactCooldownSeconds } = CONFIG.ENEMY;
+  const towerRadius = CONFIG.TOWER.radius;
+
+  for (const enemy of state.enemies) {
+    enemy.towerContactCooldown = Math.max(
+      0,
+      enemy.towerContactCooldown - deltaSeconds,
+    );
+    if (enemy.towerContactCooldown > 0) continue;
+
+    const radius = enemyRadius(enemy);
+    for (let i = 0; i < state.towers.length; i += 1) {
+      const tower = state.towers[i];
+      if (!isTowerActive(state, tower, i)) continue;
+
+      if (
+        !circlesOverlap(
+          enemy.x,
+          enemy.y,
+          radius,
+          tower.x,
+          tower.y,
+          towerRadius,
+        )
+      ) {
+        continue;
+      }
+
+      tower.hp = Math.max(0, tower.hp - towerContactDamage);
+      enemy.towerContactCooldown = towerContactCooldownSeconds;
+      break;
+    }
+  }
 }
 
 function resolveEnemyWallBreaches(state) {
-  const { radius, contactDamage } = CONFIG.ENEMY;
-  const breachY = state.wallY - radius;
-
   state.enemies = state.enemies.filter((enemy) => {
+    const radius = enemyRadius(enemy);
+    const breachY = state.wallY - radius;
     if (enemy.y < breachY) return true;
-    state.base.hp = Math.max(0, state.base.hp - contactDamage);
+    state.base.hp = Math.max(0, state.base.hp - enemyContactDamage(enemy));
     return false;
   });
 }
 
 function resolveEnemyPlayerContact(state, deltaSeconds) {
-  const { radius: enemyRadius, contactDamage, contactCooldownSeconds } =
-    CONFIG.ENEMY;
   const playerRadius = CONFIG.PLAYER.radius;
 
   for (const enemy of state.enemies) {
@@ -355,15 +663,18 @@ function resolveEnemyPlayerContact(state, deltaSeconds) {
       circlesOverlap(
         enemy.x,
         enemy.y,
-        enemyRadius,
+        enemyRadius(enemy),
         state.player.x,
         state.player.y,
         playerRadius,
       ) &&
       enemy.playerContactCooldown <= 0
     ) {
-      state.player.hp = Math.max(0, state.player.hp - contactDamage);
-      enemy.playerContactCooldown = contactCooldownSeconds;
+      state.player.hp = Math.max(
+        0,
+        state.player.hp - enemyContactDamage(enemy),
+      );
+      enemy.playerContactCooldown = enemyContactCooldownSeconds(enemy);
     }
   }
 }
@@ -443,7 +754,10 @@ function spawnPlayerBullet(state, aimX, aimY) {
 function updateTowerCombat(state, deltaSeconds) {
   const { range, fireCooldownSeconds, damage, radius } = CONFIG.TOWER;
 
-  for (const tower of state.towers) {
+  for (let i = 0; i < state.towers.length; i += 1) {
+    const tower = state.towers[i];
+    if (!isTowerActive(state, tower, i)) continue;
+
     tower.fireCooldownRemaining = Math.max(
       0,
       tower.fireCooldownRemaining - deltaSeconds,
@@ -464,8 +778,6 @@ function updateBullets(state, deltaSeconds) {
   const maxX = state.worldWidth + cullMargin;
   const maxY = state.worldHeight + cullMargin;
   const min = -cullMargin;
-  const enemyRadius = CONFIG.ENEMY.radius;
-
   const remainingBullets = [];
 
   for (const bullet of state.bullets) {
@@ -485,7 +797,7 @@ function updateBullets(state, deltaSeconds) {
           bulletRadius,
           enemy.x,
           enemy.y,
-          enemyRadius,
+          enemyRadius(enemy),
         )
       ) {
         enemy.hp -= bullet.damage ?? playerDamage;

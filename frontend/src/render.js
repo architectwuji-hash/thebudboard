@@ -198,6 +198,13 @@ export function createSceneGraph() {
     roughness: R3.roughnessDefault,
     metalness: R3.metalnessDefault,
   });
+  const bossMat = new THREE.MeshStandardMaterial({
+    color: R3.bossColor,
+    emissive: R3.bossEmissive,
+    emissiveIntensity: R3.bossEmissiveIntensity,
+    roughness: R3.roughnessDefault,
+    metalness: R3.metalnessDefault + 0.06,
+  });
 
   const bulletGeo = new CapsuleGeometry(
     R3.capsuleBulletRadius,
@@ -213,6 +220,14 @@ export function createSceneGraph() {
     metalness: 0.06,
   });
 
+  const enemyBulletMat = new THREE.MeshStandardMaterial({
+    color: R3.enemyBulletColor,
+    emissive: R3.enemyBulletEmissive,
+    emissiveIntensity: R3.enemyBulletEmissiveIntensity,
+    roughness: 0.28,
+    metalness: 0.08,
+  });
+
   const pickupMat = new THREE.MeshStandardMaterial({
     color: R3.pickupColor,
     emissive: R3.pickupEmissive,
@@ -222,7 +237,9 @@ export function createSceneGraph() {
   });
 
   const enemyMeshes = new Map();
+  const bossMeshes = new Map();
   const bulletMeshes = new Map();
+  const enemyBulletMeshes = new Map();
   const pickupMeshes = new Map();
   let enemyInstanced = null;
   const dummy = new THREE.Object3D();
@@ -258,7 +275,9 @@ export function createSceneGraph() {
     towerMeshes,
     enemyGeo,
     enemyMat,
+    bossMat,
     enemyMeshes,
+    bossMeshes,
     get enemyInstanced() {
       return enemyInstanced;
     },
@@ -266,6 +285,8 @@ export function createSceneGraph() {
     bulletGeo,
     bulletMat,
     bulletMeshes,
+    enemyBulletMat,
+    enemyBulletMeshes,
     pickupMat,
     pickupMeshes,
     dummy,
@@ -399,6 +420,13 @@ function syncPlayer(graph, state, cameraScroll, viewportWidth, viewportHeight) {
   );
 }
 
+function towerSlotUnlocked(state, index) {
+  const raw = state.upgrades?.unlockedTowerCount;
+  const limit =
+    raw === undefined || raw === null ? CONFIG.TOWER.count : Math.min(raw, CONFIG.TOWER.count);
+  return index < limit;
+}
+
 function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
   const r = pxToWorld(CONFIG.TOWER.radius);
 
@@ -406,6 +434,10 @@ function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
     const tower = state.towers[i];
     const mesh = graph.towerMeshes[i];
     if (!mesh) continue;
+
+    const alive = towerSlotUnlocked(state, i) && (tower.hp ?? 0) > 0;
+    mesh.visible = alive;
+    if (!alive) continue;
 
     const view = entityViewPos(tower, cameraScroll);
     const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
@@ -415,15 +447,45 @@ function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
   }
 }
 
-function syncEnemies(graph, state, cameraScroll, viewportWidth, viewportHeight) {
-  const maxY = state.wallY - CONFIG.ENEMY.radius;
-  graph.ensureEnemyPool(state.enemies.length);
+function syncBossMeshes(graph, bosses, cameraScroll, viewportWidth, viewportHeight) {
+  const live = new Set(bosses.map((e) => e.id));
+  for (const [id, mesh] of graph.bossMeshes) {
+    if (!live.has(id)) {
+      graph.scene.remove(mesh);
+      graph.bossMeshes.delete(id);
+    }
+  }
 
-  const visible = state.enemies.filter((e) => e.y <= maxY);
+  const bossScale = CONFIG.RENDER3D.bossScaleMultiplier;
+  for (const enemy of bosses) {
+    let mesh = graph.bossMeshes.get(enemy.id);
+    if (!mesh) {
+      mesh = new THREE.Mesh(graph.enemyGeo, graph.bossMat);
+      mesh.castShadow = true;
+      graph.bossMeshes.set(enemy.id, mesh);
+      graph.scene.add(mesh);
+    }
+    const view = entityViewPos(enemy, cameraScroll);
+    const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
+    const r = pxToWorld(CONFIG.BOSS.radius) * bossScale;
+    mesh.position.set(pos.x, r * 0.92, pos.z);
+    mesh.scale.set(r, r, r);
+  }
+}
+
+function syncEnemies(graph, state, cameraScroll, viewportWidth, viewportHeight) {
+  const visibleGrunts = state.enemies.filter(
+    (e) => !e.isBoss && e.y <= state.wallY - CONFIG.ENEMY.radius,
+  );
+  const visibleBosses = state.enemies.filter(
+    (e) => e.isBoss && e.y <= state.wallY - CONFIG.BOSS.radius,
+  );
+
+  graph.ensureEnemyPool(visibleGrunts.length);
 
   if (graph.enemyInstanced) {
     let i = 0;
-    for (const enemy of visible) {
+    for (const enemy of visibleGrunts) {
       const view = entityViewPos(enemy, cameraScroll);
       const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
       const r = pxToWorld(CONFIG.ENEMY.radius);
@@ -435,18 +497,19 @@ function syncEnemies(graph, state, cameraScroll, viewportWidth, viewportHeight) 
     }
     graph.enemyInstanced.count = i;
     graph.enemyInstanced.instanceMatrix.needsUpdate = true;
+    syncBossMeshes(graph, visibleBosses, cameraScroll, viewportWidth, viewportHeight);
     return;
   }
 
-  const live = new Set(visible.map((e) => e.id));
+  const liveGrunts = new Set(visibleGrunts.map((e) => e.id));
   for (const [id, mesh] of graph.enemyMeshes) {
-    if (!live.has(id)) {
+    if (!liveGrunts.has(id)) {
       graph.scene.remove(mesh);
       graph.enemyMeshes.delete(id);
     }
   }
 
-  for (const enemy of visible) {
+  for (const enemy of visibleGrunts) {
     let mesh = graph.enemyMeshes.get(enemy.id);
     if (!mesh) {
       mesh = new THREE.Mesh(graph.enemyGeo, graph.enemyMat);
@@ -460,36 +523,73 @@ function syncEnemies(graph, state, cameraScroll, viewportWidth, viewportHeight) 
     mesh.position.set(pos.x, r, pos.z);
     mesh.scale.set(r, r, r);
   }
+
+  syncBossMeshes(graph, visibleBosses, cameraScroll, viewportWidth, viewportHeight);
 }
 
-function syncBullets(graph, state, cameraScroll, viewportWidth, viewportHeight) {
-  const maxY = state.wallY;
-  const visible = state.bullets.filter((b) => b.y <= maxY);
+function syncBulletPool(
+  graph,
+  bullets,
+  meshMap,
+  material,
+  radiusPx,
+  cameraScroll,
+  viewportWidth,
+  viewportHeight,
+  maxY,
+) {
+  const visible = bullets.filter((b) => b.y <= maxY);
   const live = new Set(visible.map((b) => b.id));
 
-  for (const [id, mesh] of graph.bulletMeshes) {
+  for (const [id, mesh] of meshMap) {
     if (!live.has(id)) {
       graph.scene.remove(mesh);
-      graph.bulletMeshes.delete(id);
+      meshMap.delete(id);
     }
   }
 
   for (const bullet of visible) {
-    let mesh = graph.bulletMeshes.get(bullet.id);
+    let mesh = meshMap.get(bullet.id);
     if (!mesh) {
-      mesh = new THREE.Mesh(graph.bulletGeo, graph.bulletMat);
+      mesh = new THREE.Mesh(graph.bulletGeo, material);
       mesh.castShadow = true;
-      graph.bulletMeshes.set(bullet.id, mesh);
+      meshMap.set(bullet.id, mesh);
       graph.scene.add(mesh);
     }
     const view = entityViewPos(bullet, cameraScroll);
     const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
-    const r = pxToWorld(CONFIG.BULLET.radius);
+    const r = pxToWorld(radiusPx);
     mesh.position.set(pos.x, r, pos.z);
     mesh.rotation.y = Math.atan2(bullet.vx, bullet.vy);
     mesh.rotation.x = Math.PI / 2;
     mesh.scale.set(r, r, r);
   }
+}
+
+function syncBullets(graph, state, cameraScroll, viewportWidth, viewportHeight) {
+  const maxY = state.wallY;
+  syncBulletPool(
+    graph,
+    state.bullets,
+    graph.bulletMeshes,
+    graph.bulletMat,
+    CONFIG.BULLET.radius,
+    cameraScroll,
+    viewportWidth,
+    viewportHeight,
+    maxY,
+  );
+  syncBulletPool(
+    graph,
+    state.enemyBullets ?? [],
+    graph.enemyBulletMeshes,
+    graph.enemyBulletMat,
+    CONFIG.ENEMY_BULLET.radius,
+    cameraScroll,
+    viewportWidth,
+    viewportHeight,
+    maxY,
+  );
 }
 
 function syncPickups(graph, state, cameraScroll, viewportWidth, viewportHeight) {

@@ -62,6 +62,7 @@ export const CONFIG = {
     arcStartRad: -2.75,
     arcEndRad: -0.39,
     radius: 14,
+    maxHp: 120,
     range: 340,
     fireCooldownSeconds: 0.5,
     damage: 24,
@@ -92,10 +93,18 @@ export const CONFIG = {
     stroke: '#fecaca',
     strokeWidth: 2,
     maxHp: 68,
-    /** World-units per second toward wall or player (whichever is closer). */
+    /** World-units per second toward active towers, then the wall gate. */
     speed: 95,
     /** Damage applied when breaching the wall or touching the player. */
     contactDamage: 12,
+    /** Added to maxHp for each wave after wave 1 (wave 1 uses maxHp as-is). */
+    hpPerWave: 7,
+    /** Added to contactDamage for each wave after wave 1. */
+    contactDamagePerWave: 2,
+    /** Damage per hit when an enemy melee-strikes an active tower. */
+    towerContactDamage: 14,
+    /** Seconds before the same enemy can damage a tower again. */
+    towerContactCooldownSeconds: 0.75,
     /** Seconds before the same enemy can damage the player again. */
     contactCooldownSeconds: 0.85,
     /** Delay between spawning each enemy within the same wave. */
@@ -104,6 +113,35 @@ export const CONFIG = {
     interWaveDelaySeconds: 2,
     hpFont: 'bold 11px system-ui, sans-serif',
     hpColor: '#ffffff',
+  },
+
+  /** One boss spawns first on every wave that is a multiple of everyNWaves. */
+  BOSS: {
+    everyNWaves: 10,
+    radius: 22,
+    /** World-units per second (bosses use the same tower-then-wall targeting as grunts). */
+    speed: 78,
+    maxHp: 420,
+    contactDamage: 26,
+    contactCooldownSeconds: 0.85,
+    hpPerWave: 22,
+    contactDamagePerWave: 3,
+  },
+
+  /** Projectiles fired by enemies toward player, towers, or the wall line. */
+  ENEMY_BULLET: {
+    radius: 4,
+    fill: '#f87171',
+    stroke: '#fecaca',
+    strokeWidth: 1,
+    /** World-units per second. */
+    speed: 300,
+    damage: 9,
+    /** Max distance to acquire a target and fire. */
+    range: 300,
+    /** Minimum seconds between shots per enemy. */
+    fireCooldownSeconds: 1.35,
+    cullMargin: 24,
   },
 
   /** World matches viewport so layout bands align with the screen. */
@@ -134,9 +172,16 @@ export const CONFIG = {
     enemyColor: 0x7f1d1d,
     enemyEmissive: 0x450a0a,
     enemyEmissiveIntensity: 0.15,
+    bossColor: 0x4c1d95,
+    bossEmissive: 0x2e1065,
+    bossEmissiveIntensity: 0.35,
+    bossScaleMultiplier: 1.55,
     bulletColor: 0x422006,
     bulletEmissive: 0xca8a04,
     bulletEmissiveIntensity: 1.1,
+    enemyBulletColor: 0x450a0a,
+    enemyBulletEmissive: 0xef4444,
+    enemyBulletEmissiveIntensity: 0.95,
     pickupColor: 0x713f12,
     pickupEmissive: 0xb45309,
     pickupEmissiveIntensity: 0.85,
