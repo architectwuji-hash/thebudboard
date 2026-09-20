@@ -95,6 +95,10 @@ export const CONFIG = {
     speed: 95,
     /** Damage applied when breaching the wall or touching the player. */
     contactDamage: 12,
+    /** Added to maxHp for each wave after wave 1 (wave 1 uses maxHp as-is). */
+    hpPerWave: 7,
+    /** Added to contactDamage for each wave after wave 1. */
+    contactDamagePerWave: 2,
     /** Damage per hit when an enemy melee-strikes an active tower. */
     towerContactDamage: 14,
     /** Seconds before the same enemy can damage a tower again. */
@@ -107,6 +111,19 @@ export const CONFIG = {
     interWaveDelaySeconds: 2,
     hpFont: 'bold 11px system-ui, sans-serif',
     hpColor: '#ffffff',
+  },
+
+  /** One boss spawns first on every wave that is a multiple of everyNWaves. */
+  BOSS: {
+    everyNWaves: 10,
+    radius: 22,
+    /** World-units per second (bosses use the same tower-then-wall targeting as grunts). */
+    speed: 78,
+    maxHp: 420,
+    contactDamage: 26,
+    contactCooldownSeconds: 0.85,
+    hpPerWave: 22,
+    contactDamagePerWave: 3,
   },
 
   /** Projectiles fired by enemies toward player, towers, or the wall line. */
@@ -153,6 +170,10 @@ export const CONFIG = {
     enemyColor: 0x7f1d1d,
     enemyEmissive: 0x450a0a,
     enemyEmissiveIntensity: 0.15,
+    bossColor: 0x4c1d95,
+    bossEmissive: 0x2e1065,
+    bossEmissiveIntensity: 0.35,
+    bossScaleMultiplier: 1.55,
     bulletColor: 0x422006,
     bulletEmissive: 0xca8a04,
     bulletEmissiveIntensity: 1.1,
