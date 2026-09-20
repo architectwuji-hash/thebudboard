@@ -83,7 +83,10 @@ export const CONFIG = {
     contactDamage: 12,
     /** Seconds before the same enemy can damage the player again. */
     contactCooldownSeconds: 0.85,
-    spawnIntervalSeconds: 2.4,
+    /** Delay between spawning each enemy within the same wave. */
+    spawnIntervalSeconds: 0.85,
+    /** Pause after clearing a wave before the next wave begins. */
+    interWaveDelaySeconds: 2,
     hpFont: 'bold 11px system-ui, sans-serif',
     hpColor: '#ffffff',
   },

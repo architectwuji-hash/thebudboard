@@ -124,7 +124,11 @@ export function createGameState(viewportWidth, viewportHeight) {
     upgrades: createInitialUpgrades(),
     wallY,
     wave: 1,
-    spawnTimerRemaining: CONFIG.ENEMY.spawnIntervalSeconds,
+    /** Enemies still to spawn for the current wave (wave N → N spawns). */
+    enemiesLeftToSpawnInWave: 1,
+    waitingForNextWave: false,
+    interWaveTimer: 0,
+    spawnTimerRemaining: 0,
     viewportWidth,
     viewportHeight,
     worldWidth,
@@ -215,11 +219,37 @@ export function markGameOverIfBaseDestroyed(state) {
 }
 
 function updateSpawns(state, deltaSeconds) {
+  const { spawnIntervalSeconds, interWaveDelaySeconds } = CONFIG.ENEMY;
+
+  if (
+    state.enemiesLeftToSpawnInWave === 0 &&
+    state.enemies.length === 0
+  ) {
+    if (state.waitingForNextWave) {
+      state.interWaveTimer -= deltaSeconds;
+      if (state.interWaveTimer > 0) return;
+
+      state.waitingForNextWave = false;
+      state.wave += 1;
+      state.enemiesLeftToSpawnInWave = state.wave;
+      state.spawnTimerRemaining = 0;
+    } else {
+      state.waitingForNextWave = true;
+      state.interWaveTimer = interWaveDelaySeconds;
+      return;
+    }
+  }
+
+  if (state.enemiesLeftToSpawnInWave <= 0) return;
+
   state.spawnTimerRemaining -= deltaSeconds;
-  while (state.spawnTimerRemaining <= 0) {
+  while (
+    state.spawnTimerRemaining <= 0 &&
+    state.enemiesLeftToSpawnInWave > 0
+  ) {
     state.enemies.push(createEnemyAtTopEdge(state));
-    state.wave += 1;
-    state.spawnTimerRemaining += CONFIG.ENEMY.spawnIntervalSeconds;
+    state.enemiesLeftToSpawnInWave -= 1;
+    state.spawnTimerRemaining += spawnIntervalSeconds;
   }
 }
 
