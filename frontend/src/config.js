@@ -82,9 +82,16 @@ export const CONFIG = {
 
   PICKUP: {
     radius: 8,
+    /** HP restored when the player collects a health drop. */
+    healAmount: 12,
+    /** Score granted when an enemy dies (shop currency). */
+    scoreOnKill: 1,
     fill: '#facc15',
     stroke: '#ca8a04',
     strokeWidth: 1,
+    healthFill: '#4ade80',
+    healthStroke: '#15803d',
+    healthStrokeWidth: 1,
   },
 
   ENEMY: {
@@ -185,6 +192,9 @@ export const CONFIG = {
     pickupColor: 0x713f12,
     pickupEmissive: 0xb45309,
     pickupEmissiveIntensity: 0.85,
+    healthPickupColor: 0x22c55e,
+    healthPickupEmissive: 0x15803d,
+    healthPickupEmissiveIntensity: 0.95,
     wallColor: 0xc4cad4,
     wallRoughness: 0.55,
     wallMetalness: 0.12,

@@ -817,10 +817,12 @@ function updateBullets(state, deltaSeconds) {
       survivingEnemies.push(enemy);
       continue;
     }
+    state.score += CONFIG.PICKUP.scoreOnKill;
     state.pickups.push({
       id: nextPickupId++,
       x: enemy.x,
       y: enemy.y,
+      kind: 'health',
     });
   }
   state.enemies = survivingEnemies;
@@ -839,7 +841,12 @@ function collectPickups(state) {
       pickup.y,
       pickupRadius,
     );
-    if (collected) state.score += 1;
+    if (collected && pickup.kind === 'health') {
+      state.player.hp = Math.min(
+        state.player.maxHp,
+        state.player.hp + CONFIG.PICKUP.healAmount,
+      );
+    }
     return !collected;
   });
 }
