@@ -398,6 +398,13 @@ function syncPlayer(graph, state, cameraScroll, viewportWidth, viewportHeight) {
   );
 }
 
+function towerSlotUnlocked(state, index) {
+  const raw = state.upgrades?.unlockedTowerCount;
+  const limit =
+    raw === undefined || raw === null ? CONFIG.TOWER.count : Math.min(raw, CONFIG.TOWER.count);
+  return index < limit;
+}
+
 function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
   const r = pxToWorld(CONFIG.TOWER.radius);
 
@@ -405,6 +412,10 @@ function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
     const tower = state.towers[i];
     const mesh = graph.towerMeshes[i];
     if (!mesh) continue;
+
+    const alive = towerSlotUnlocked(state, i) && (tower.hp ?? 0) > 0;
+    mesh.visible = alive;
+    if (!alive) continue;
 
     const view = entityViewPos(tower, cameraScroll);
     const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
@@ -541,6 +552,7 @@ export function renderWorldFrame(
     gameState.time ?? 0,
   );
   syncPlayer(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
+  syncTowers(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncEnemies(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncBullets(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncPickups(graph, gameState, cameraScroll, viewportWidth, viewportHeight);

@@ -60,6 +60,7 @@ export const CONFIG = {
     arcStartRad: -2.75,
     arcEndRad: -0.39,
     radius: 11,
+    maxHp: 120,
     range: 340,
     fireCooldownSeconds: 0.5,
     damage: 24,
@@ -90,10 +91,14 @@ export const CONFIG = {
     stroke: '#fecaca',
     strokeWidth: 2,
     maxHp: 68,
-    /** World-units per second toward wall or player (whichever is closer). */
+    /** World-units per second toward active towers, then the wall gate. */
     speed: 95,
     /** Damage applied when breaching the wall or touching the player. */
     contactDamage: 12,
+    /** Damage per hit when an enemy melee-strikes an active tower. */
+    towerContactDamage: 14,
+    /** Seconds before the same enemy can damage a tower again. */
+    towerContactCooldownSeconds: 0.75,
     /** Seconds before the same enemy can damage the player again. */
     contactCooldownSeconds: 0.85,
     /** Delay between spawning each enemy within the same wave. */

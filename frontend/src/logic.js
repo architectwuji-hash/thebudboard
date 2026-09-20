@@ -77,6 +77,8 @@ function buildTowersAroundBase(base) {
       id: i,
       x: base.x + Math.cos(angle) * orbitRadius,
       y: base.y + Math.sin(angle) * orbitRadius,
+      hp: CONFIG.TOWER.maxHp,
+      maxHp: CONFIG.TOWER.maxHp,
       fireCooldownRemaining: 0,
     });
   }
@@ -104,6 +106,48 @@ function wallTargetPoint(state) {
     x: state.worldWidth / 2,
     y: state.wallY,
   };
+}
+
+/** Unlocked slot count; defaults to all towers when shop unlock is not in use. */
+function unlockedTowerSlotCount(state) {
+  const raw = state.upgrades?.unlockedTowerCount;
+  if (raw === undefined || raw === null) return CONFIG.TOWER.count;
+  return Math.min(Math.max(0, raw), CONFIG.TOWER.count);
+}
+
+function isTowerActive(state, tower, index) {
+  if (index >= unlockedTowerSlotCount(state)) return false;
+  return (tower.hp ?? 0) > 0;
+}
+
+function findNearestActiveTowerTarget(state, enemy) {
+  const { radius: towerRadius } = CONFIG.TOWER;
+  let bestDist = Infinity;
+  let bestPoint = null;
+
+  for (let i = 0; i < state.towers.length; i += 1) {
+    const tower = state.towers[i];
+    if (!isTowerActive(state, tower, i)) continue;
+
+    const dx = tower.x - enemy.x;
+    const dy = tower.y - enemy.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist >= bestDist) continue;
+
+    bestDist = dist;
+    if (dist < 0.001) {
+      bestPoint = { x: tower.x, y: tower.y };
+    } else {
+      const reach = towerRadius + CONFIG.ENEMY.radius;
+      const t = Math.max(0, (dist - reach) / dist);
+      bestPoint = {
+        x: enemy.x + dx * t,
+        y: enemy.y + dy * t,
+      };
+    }
+  }
+
+  return bestPoint;
 }
 
 /** Camera top-left in world space; fixed when world matches viewport. */
@@ -231,6 +275,7 @@ export function updateGameState(state, deltaSeconds, movement) {
 
   updateEnemies(state, deltaSeconds);
   clampEnemyPositions(state);
+  resolveEnemyTowerContact(state, deltaSeconds);
   resolveEnemyWallBreaches(state);
   resolveEnemyPlayerContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
@@ -294,6 +339,7 @@ function createEnemyAtTopEdge(state) {
     hp: CONFIG.ENEMY.maxHp,
     maxHp: CONFIG.ENEMY.maxHp,
     playerContactCooldown: 0,
+    towerContactCooldown: 0,
   };
 }
 
@@ -315,11 +361,50 @@ function updateEnemies(state, deltaSeconds) {
   }
 }
 
-/** Move toward whichever of the wall center or player is closer. */
+/** Nearest active tower, else the wall gate (base breach line). */
 function pickEnemyTarget(state, enemy, wallPoint) {
-  const toWall = Math.hypot(wallPoint.x - enemy.x, wallPoint.y - enemy.y);
-  const toPlayer = Math.hypot(state.player.x - enemy.x, state.player.y - enemy.y);
-  return toPlayer < toWall ? state.player : wallPoint;
+  const towerTarget = findNearestActiveTowerTarget(state, enemy);
+  if (towerTarget) return towerTarget;
+  return wallPoint;
+}
+
+function resolveEnemyTowerContact(state, deltaSeconds) {
+  const {
+    radius: enemyRadius,
+    towerContactDamage,
+    towerContactCooldownSeconds,
+  } = CONFIG.ENEMY;
+  const towerRadius = CONFIG.TOWER.radius;
+
+  for (const enemy of state.enemies) {
+    enemy.towerContactCooldown = Math.max(
+      0,
+      enemy.towerContactCooldown - deltaSeconds,
+    );
+    if (enemy.towerContactCooldown > 0) continue;
+
+    for (let i = 0; i < state.towers.length; i += 1) {
+      const tower = state.towers[i];
+      if (!isTowerActive(state, tower, i)) continue;
+
+      if (
+        !circlesOverlap(
+          enemy.x,
+          enemy.y,
+          enemyRadius,
+          tower.x,
+          tower.y,
+          towerRadius,
+        )
+      ) {
+        continue;
+      }
+
+      tower.hp = Math.max(0, tower.hp - towerContactDamage);
+      enemy.towerContactCooldown = towerContactCooldownSeconds;
+      break;
+    }
+  }
 }
 
 function resolveEnemyWallBreaches(state) {
@@ -436,7 +521,10 @@ function spawnPlayerBullet(state, aimX, aimY) {
 function updateTowerCombat(state, deltaSeconds) {
   const { range, fireCooldownSeconds, damage, radius } = CONFIG.TOWER;
 
-  for (const tower of state.towers) {
+  for (let i = 0; i < state.towers.length; i += 1) {
+    const tower = state.towers[i];
+    if (!isTowerActive(state, tower, i)) continue;
+
     tower.fireCooldownRemaining = Math.max(
       0,
       tower.fireCooldownRemaining - deltaSeconds,
