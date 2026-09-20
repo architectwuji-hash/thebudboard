@@ -219,6 +219,13 @@ export function createSceneGraph() {
     roughness: 0.28,
     metalness: 0.45,
   });
+  const healthPickupMat = new THREE.MeshStandardMaterial({
+    color: R3.healthPickupColor,
+    emissive: R3.healthPickupEmissive,
+    emissiveIntensity: R3.healthPickupEmissiveIntensity,
+    roughness: 0.22,
+    metalness: 0.35,
+  });
 
   const enemyMeshes = new Map();
   const bulletMeshes = new Map();
@@ -266,6 +273,7 @@ export function createSceneGraph() {
     bulletMat,
     bulletMeshes,
     pickupMat,
+    healthPickupMat,
     pickupMeshes,
     dummy,
   };
@@ -502,13 +510,20 @@ function syncPickups(graph, state, cameraScroll, viewportWidth, viewportHeight) 
     }
   }
 
+  function pickupMaterial(kind) {
+    return kind === 'health' ? graph.healthPickupMat : graph.pickupMat;
+  }
+
   for (const pickup of visible) {
     let mesh = graph.pickupMeshes.get(pickup.id);
+    const mat = pickupMaterial(pickup.kind);
     if (!mesh) {
-      mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), graph.pickupMat);
+      mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), mat);
       mesh.castShadow = true;
       graph.pickupMeshes.set(pickup.id, mesh);
       graph.scene.add(mesh);
+    } else if (mesh.material !== mat) {
+      mesh.material = mat;
     }
     const view = entityViewPos(pickup, cameraScroll);
     placeSphere(
