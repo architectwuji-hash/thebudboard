@@ -55,7 +55,8 @@ export const CONFIG = {
   /** Five static turrets orbiting the base (logic positions, render meshes). */
   TOWER: {
     count: 5,
-    orbitRadius: 78,
+    /** Outside the base sphere (BASE.radius 45 + tower radius + margin). */
+    orbitRadius: 96,
     /** Arc above the base (radians; −π/2 points toward top of screen). */
     arcStartRad: -2.75,
     arcEndRad: -0.39,

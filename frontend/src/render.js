@@ -541,6 +541,7 @@ export function renderWorldFrame(
     gameState.time ?? 0,
   );
   syncPlayer(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
+  syncTowers(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncEnemies(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncBullets(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncPickups(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
