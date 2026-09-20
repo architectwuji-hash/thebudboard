@@ -678,6 +678,8 @@ export function renderOverlayFrame(
   joystick,
 ) {
   ctx.clearRect(0, 0, viewportWidth, viewportHeight);
+  if (gameState.gameOver) return;
+
   drawUpgradeBuffIcons(
     ctx,
     gameState.upgrades,

@@ -132,6 +132,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     playAreaLeft: 0,
     playAreaRight: worldWidth,
     time: 0,
+    gameOver: false,
   };
 
   syncPlayArea(gameState, viewportWidth);
@@ -184,6 +185,7 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
  */
 export function updateGameState(state, deltaSeconds, movement) {
   state.time = (state.time ?? 0) + deltaSeconds;
+  if (state.gameOver) return;
   if (state.shopOpen) return;
 
   updateSpawns(state, deltaSeconds);
@@ -201,6 +203,15 @@ export function updateGameState(state, deltaSeconds, movement) {
   resolveEnemyPlayerContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
   updateBullets(state, deltaSeconds);
+  markGameOverIfBaseDestroyed(state);
+}
+
+/** Base HP at 0 ends the run; gameplay freezes until restart. */
+export function markGameOverIfBaseDestroyed(state) {
+  if (state.base.hp > 0) return;
+  state.base.hp = 0;
+  state.gameOver = true;
+  state.shopOpen = false;
 }
 
 function updateSpawns(state, deltaSeconds) {

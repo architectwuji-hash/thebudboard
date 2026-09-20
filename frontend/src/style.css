@@ -53,6 +53,52 @@ body {
   pointer-events: none;
 }
 
+#game-over {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+#game-over.hidden {
+  display: none;
+}
+
+.game-over-card {
+  max-width: min(92vw, 360px);
+  margin: 16px;
+  padding: 28px 24px;
+  text-align: center;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(248, 250, 252, 0.2);
+  color: #f8fafc;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+
+.game-over-card h1 {
+  margin: 0 0 12px;
+  font: 700 28px system-ui, sans-serif;
+}
+
+.game-over-card p {
+  margin: 0 0 10px;
+  font: 500 16px system-ui, sans-serif;
+  color: #cbd5e1;
+}
+
+.game-over-hint {
+  margin-top: 18px !important;
+  font-size: 14px !important;
+  color: #94a3b8 !important;
+}
+
 #hud > span {
   background: rgba(15, 23, 42, 0.72);
   padding: 6px 12px;

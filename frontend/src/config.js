@@ -159,6 +159,12 @@ export const CONFIG = {
     protectedZone: '#0d1117',
   },
 
+  GAME_OVER: {
+    title: 'Game Over',
+    message: 'Your base was destroyed.',
+    restartHint: 'Tap anywhere or press Enter to play again',
+  },
+
   HUD: {
     baseLabel: 'Base HP',
     playerLabel: 'Player HP',
