@@ -226,6 +226,27 @@ export const CONFIG = {
         pullSpeedPerLevel: 35,
         accent: '#a78bfa',
       },
+      baseHealth: {
+        name: 'Base Health',
+        shortLabel: 'BH',
+        baseCost: 12,
+        hpPerLevel: 25,
+        accent: '#eab308',
+      },
+      playerHealth: {
+        name: 'Player Health',
+        shortLabel: 'PH',
+        baseCost: 10,
+        hpPerLevel: 20,
+        accent: '#22c55e',
+      },
+      playerDamage: {
+        name: 'Player Damage',
+        shortLabel: 'PD',
+        baseCost: 11,
+        damagePerLevel: 10,
+        accent: '#dc2626',
+      },
     },
     button: {
       label: 'Shop',
@@ -243,7 +264,7 @@ export const CONFIG = {
     overlay: {
       margin: 16,
       panelMaxWidth: 360,
-      panelHeight: 400,
+      panelHeight: 548,
       panelPaddingX: 16,
       headerHeight: 56,
       footerHeight: 56,

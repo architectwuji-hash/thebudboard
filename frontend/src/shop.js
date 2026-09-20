@@ -3,7 +3,15 @@ import { computeShopButtonRect } from './hudLayout.js';
 
 /** @typedef {{ x: number, y: number, width: number, height: number }} Rect */
 
-const POWER_IDS = ['rapidFire', 'heavyRounds', 'targeting', 'magnet'];
+const POWER_IDS = [
+  'rapidFire',
+  'heavyRounds',
+  'targeting',
+  'magnet',
+  'baseHealth',
+  'playerHealth',
+  'playerDamage',
+];
 
 export function createInitialUpgrades() {
   return {
@@ -11,6 +19,9 @@ export function createInitialUpgrades() {
     heavyRounds: 0,
     targeting: 0,
     magnet: 0,
+    baseHealth: 0,
+    playerHealth: 0,
+    playerDamage: 0,
   };
 }
 
@@ -51,7 +62,31 @@ export function getNextLevelDescription(powerId, currentLevel) {
     const radius = power.baseRadius + next * power.radiusPerLevel;
     return `Lv${next}: ${Math.round(radius)}px orb pull radius`;
   }
+  if (powerId === 'baseHealth') {
+    return `Lv${next}: +${power.hpPerLevel} base max HP (heals)`;
+  }
+  if (powerId === 'playerHealth') {
+    return `Lv${next}: +${power.hpPerLevel} player max HP (heals)`;
+  }
+  if (powerId === 'playerDamage') {
+    return `Lv${next}: +${power.damagePerLevel} bullet damage per shot`;
+  }
   return '';
+}
+
+function applyUpgradeEffects(state, powerId) {
+  const power = getPowerDefinition(powerId);
+
+  if (powerId === 'baseHealth') {
+    state.base.maxHp += power.hpPerLevel;
+    state.base.hp += power.hpPerLevel;
+    return;
+  }
+
+  if (powerId === 'playerHealth') {
+    state.player.maxHp += power.hpPerLevel;
+    state.player.hp += power.hpPerLevel;
+  }
 }
 
 export function tryPurchaseUpgrade(state, powerId) {
@@ -63,6 +98,7 @@ export function tryPurchaseUpgrade(state, powerId) {
 
   state.score -= cost;
   state.upgrades[powerId] = level + 1;
+  applyUpgradeEffects(state, powerId);
   return true;
 }
 
@@ -94,11 +130,18 @@ export function getEffectiveAutoAimRange(state) {
 
 export function getEffectiveBulletDamage(state) {
   const base = CONFIG.BULLET.damage;
-  const level = state.upgrades.heavyRounds ?? 0;
-  if (level <= 0) return base;
+  const heavyLevel = state.upgrades.heavyRounds ?? 0;
+  const damageLevel = state.upgrades.playerDamage ?? 0;
 
-  const { damageBonusPerLevel } = CONFIG.SHOP.powers.heavyRounds;
-  return base * (1 + level * damageBonusPerLevel);
+  let damage = base;
+  if (heavyLevel > 0) {
+    const { damageBonusPerLevel } = CONFIG.SHOP.powers.heavyRounds;
+    damage *= 1 + heavyLevel * damageBonusPerLevel;
+  }
+  if (damageLevel > 0) {
+    damage += damageLevel * CONFIG.SHOP.powers.playerDamage.damagePerLevel;
+  }
+  return damage;
 }
 
 export function getMagnetPullStats(state) {
