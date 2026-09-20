@@ -14,9 +14,12 @@ const POWER_IDS = [
   'recruitSoldier',
   'soldierHealth',
   'soldierDamage',
+  'unlockTower',
+  'towerDamage',
 ];
 
 const RECRUIT_POWER_ID = 'recruitSoldier';
+const UNLOCK_TOWER_POWER_ID = 'unlockTower';
 
 export function createInitialUpgrades() {
   return {
@@ -29,7 +32,22 @@ export function createInitialUpgrades() {
     playerDamage: 0,
     soldierHealth: 0,
     soldierDamage: 0,
+    unlockedTowerCount: 0,
+    towerDamage: 0,
   };
+}
+
+export function getUnlockedTowerCount(state) {
+  const count = state.upgrades.unlockedTowerCount ?? 0;
+  return Math.min(Math.max(0, count), CONFIG.TOWER.count);
+}
+
+export function getEffectiveTowerDamage(state) {
+  const base = CONFIG.TOWER.damage;
+  const level = state.upgrades.towerDamage ?? 0;
+  if (level <= 0) return base;
+  const { damagePerLevel } = CONFIG.SHOP.powers.towerDamage;
+  return base + level * damagePerLevel;
 }
 
 /** Recruits always cost the flat baseCost (not level-scaled). */
@@ -64,6 +82,11 @@ export function listShopPowerIds() {
 export function getUpgradeCost(powerId, currentLevel) {
   if (powerId === RECRUIT_POWER_ID) {
     return getRecruitSoldierCost();
+  }
+  if (powerId === UNLOCK_TOWER_POWER_ID) {
+    if (currentLevel >= CONFIG.TOWER.count) return null;
+    const power = getPowerDefinition(powerId);
+    return Math.round(power.baseCost * CONFIG.SHOP.costScale ** currentLevel);
   }
   const power = getPowerDefinition(powerId);
   if (currentLevel >= CONFIG.SHOP.maxLevel) return null;
@@ -115,6 +138,15 @@ export function getNextLevelDescription(powerId, currentLevel, state = null) {
     const dmg = getEffectiveSoldierDamageFromLevel(next);
     return `Lv${next}: new recruits ${dmg} damage (existing unchanged)`;
   }
+  if (powerId === 'unlockTower') {
+    const slot = next;
+    return `Slot ${slot}/${CONFIG.TOWER.count} · auto-turret around base`;
+  }
+  if (powerId === 'towerDamage') {
+    const dmg =
+      CONFIG.TOWER.damage + next * CONFIG.SHOP.powers.towerDamage.damagePerLevel;
+    return `Lv${next}: ${dmg} damage per tower shot`;
+  }
   return '';
 }
 
@@ -160,6 +192,16 @@ export function tryPurchaseUpgrade(state, powerId) {
     if (state.score < cost || !recruitSoldierHandler) return false;
     state.score -= cost;
     recruitSoldierHandler(state);
+    return true;
+  }
+
+  if (powerId === UNLOCK_TOWER_POWER_ID) {
+    const unlocked = getUnlockedTowerCount(state);
+    if (unlocked >= CONFIG.TOWER.count) return false;
+    const cost = getUpgradeCost(powerId, unlocked);
+    if (cost === null || state.score < cost) return false;
+    state.score -= cost;
+    state.upgrades.unlockedTowerCount = unlocked + 1;
     return true;
   }
 

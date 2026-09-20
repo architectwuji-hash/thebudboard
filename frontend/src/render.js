@@ -411,12 +411,19 @@ function syncPlayer(graph, state, cameraScroll, viewportWidth, viewportHeight) {
 
 function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
   const r = pxToWorld(CONFIG.TOWER.radius);
+  const unlocked = state.upgrades.unlockedTowerCount ?? 0;
 
-  for (let i = 0; i < state.towers.length; i += 1) {
-    const tower = state.towers[i];
+  for (let i = 0; i < graph.towerMeshes.length; i += 1) {
     const mesh = graph.towerMeshes[i];
     if (!mesh) continue;
 
+    if (i >= unlocked || !state.towers[i]) {
+      mesh.visible = false;
+      continue;
+    }
+
+    const tower = state.towers[i];
+    mesh.visible = true;
     const view = entityViewPos(tower, cameraScroll);
     const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
     mesh.position.set(pos.x, r * 0.85, pos.z);
@@ -584,6 +591,7 @@ export function renderWorldFrame(
     gameState.time ?? 0,
   );
   syncPlayer(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
+  syncTowers(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncSoldiers(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncEnemies(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
   syncBullets(graph, gameState, cameraScroll, viewportWidth, viewportHeight);
@@ -627,7 +635,10 @@ export function drawUpgradeBuffIcons(ctx, upgrades, anchorX, anchorY) {
   let x = anchorX;
 
   for (const powerId of listShopPowerIds()) {
-    const level = upgrades[powerId] ?? 0;
+    const level =
+      powerId === 'unlockTower'
+        ? (upgrades.unlockedTowerCount ?? 0)
+        : (upgrades[powerId] ?? 0);
     if (level <= 0) continue;
 
     const accent = powers[powerId].accent;
@@ -682,7 +693,10 @@ export function drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight) {
     const powerId = powerIds[i];
     const power = getPowerDefinition(powerId);
     const row = layout.rows[i];
-    const level = gameState.upgrades[powerId] ?? 0;
+    const level =
+      powerId === 'unlockTower'
+        ? (gameState.upgrades.unlockedTowerCount ?? 0)
+        : (gameState.upgrades[powerId] ?? 0);
     const cost = getUpgradeCost(powerId, level);
     const nextDesc = getNextLevelDescription(powerId, level, gameState);
 
@@ -700,10 +714,14 @@ export function drawShopOverlay(ctx, gameState, viewportWidth, viewportHeight) {
     ctx.textBaseline = 'top';
     ctx.fillStyle = overlay.rowColor;
     ctx.font = overlay.rowFont;
-    const levelLabel =
-      powerId === 'recruitSoldier'
-        ? power.name
-        : `${power.name}  Lv ${level}/${CONFIG.SHOP.maxLevel}`;
+    let levelLabel;
+    if (powerId === 'recruitSoldier') {
+      levelLabel = power.name;
+    } else if (powerId === 'unlockTower') {
+      levelLabel = `${power.name}  ${level}/${CONFIG.TOWER.count}`;
+    } else {
+      levelLabel = `${power.name}  Lv ${level}/${CONFIG.SHOP.maxLevel}`;
+    }
     ctx.fillText(levelLabel, row.x + 12, row.y + 8);
 
     ctx.fillStyle = overlay.detailColor;

@@ -6,6 +6,8 @@ import {
   getEffectiveFireCooldownSeconds,
   getEffectiveSoldierDamage,
   getEffectiveSoldierMaxHp,
+  getEffectiveTowerDamage,
+  getUnlockedTowerCount,
   setRecruitSoldierHandler,
   updateMagnetPickups,
 } from './shop.js';
@@ -75,8 +77,16 @@ function baseCastlePosition(worldWidth, viewportHeight, wallY) {
   };
 }
 
+function towerOrbitRadius() {
+  const { orbitRadius, orbitMarginFromBase, radius } = CONFIG.TOWER;
+  const minRadius =
+    CONFIG.BASE.radius + radius + orbitMarginFromBase;
+  return Math.max(orbitRadius, minRadius);
+}
+
 function buildTowersAroundBase(base) {
-  const { count, orbitRadius, arcStartRad, arcEndRad } = CONFIG.TOWER;
+  const { count, arcStartRad, arcEndRad } = CONFIG.TOWER;
+  const orbitRadius = towerOrbitRadius();
   const towers = [];
 
   for (let i = 0; i < count; i += 1) {
@@ -589,9 +599,14 @@ function resolveEnemySoldierContact(state, deltaSeconds) {
 }
 
 function updateTowerCombat(state, deltaSeconds) {
-  const { range, fireCooldownSeconds, damage, radius } = CONFIG.TOWER;
+  const { range, fireCooldownSeconds, radius } = CONFIG.TOWER;
+  const damage = getEffectiveTowerDamage(state);
+  const unlocked = getUnlockedTowerCount(state);
 
-  for (const tower of state.towers) {
+  for (let i = 0; i < unlocked; i += 1) {
+    const tower = state.towers[i];
+    if (!tower) continue;
+
     tower.fireCooldownRemaining = Math.max(
       0,
       tower.fireCooldownRemaining - deltaSeconds,

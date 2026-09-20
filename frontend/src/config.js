@@ -55,10 +55,13 @@ export const CONFIG = {
   /** Five static turrets orbiting the base (logic positions, render meshes). */
   TOWER: {
     count: 5,
-    orbitRadius: 78,
+    /** Center distance from base; must clear BASE.radius + tower mesh radius + margin. */
+    orbitRadius: 96,
+    /** Extra gap beyond base edge and tower radius (world px). */
+    orbitMarginFromBase: 14,
     /** Arc above the base (radians; −π/2 points toward top of screen). */
-    arcStartRad: -2.75,
-    arcEndRad: -0.39,
+    arcStartRad: -2.85,
+    arcEndRad: -0.28,
     radius: 11,
     range: 340,
     fireCooldownSeconds: 0.5,
@@ -315,6 +318,19 @@ export const CONFIG = {
         damagePerLevel: 6,
         accent: '#818cf8',
       },
+      unlockTower: {
+        name: 'Unlock Tower',
+        shortLabel: 'UT',
+        baseCost: 14,
+        accent: '#64748b',
+      },
+      towerDamage: {
+        name: 'Tower Damage',
+        shortLabel: 'TD',
+        baseCost: 10,
+        damagePerLevel: 8,
+        accent: '#78716c',
+      },
     },
     button: {
       label: 'Shop',
@@ -332,7 +348,7 @@ export const CONFIG = {
     overlay: {
       margin: 16,
       panelMaxWidth: 360,
-      panelHeight: 686,
+      panelHeight: 810,
       panelPaddingX: 16,
       headerHeight: 56,
       footerHeight: 56,
