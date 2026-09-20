@@ -52,6 +52,19 @@ export const CONFIG = {
     autoAimRange: 260,
   },
 
+  /** Five static turrets orbiting the base (logic positions, render meshes). */
+  TOWER: {
+    count: 5,
+    orbitRadius: 78,
+    /** Arc above the base (radians; −π/2 points toward top of screen). */
+    arcStartRad: -2.75,
+    arcEndRad: -0.39,
+    radius: 11,
+    range: 340,
+    fireCooldownSeconds: 0.5,
+    damage: 24,
+  },
+
   BULLET: {
     radius: 5,
     fill: '#fbbf24',
@@ -155,6 +168,9 @@ export const CONFIG = {
     hemisphereGroundColor: 0x64748b,
     hemisphereIntensity: 1.35,
     enemyInstancedThreshold: 10,
+    towerColor: 0x374151,
+    towerEmissive: 0x1f2937,
+    towerEmissiveIntensity: 0.2,
   },
 
   CANVAS: {

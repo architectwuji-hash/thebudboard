@@ -168,6 +168,22 @@ export function createSceneGraph() {
   playerMesh.castShadow = true;
   scene.add(playerMesh);
 
+  const towerMat = new THREE.MeshStandardMaterial({
+    color: R3.towerColor,
+    emissive: R3.towerEmissive,
+    emissiveIntensity: R3.towerEmissiveIntensity,
+    roughness: R3.roughnessDefault,
+    metalness: R3.metalnessDefault + 0.08,
+  });
+  const towerGeo = new RoundedBoxGeometry(1, 1.35, 1, 3, 0.08);
+  const towerMeshes = [];
+  for (let i = 0; i < CONFIG.TOWER.count; i += 1) {
+    const mesh = new THREE.Mesh(towerGeo, towerMat);
+    mesh.castShadow = true;
+    scene.add(mesh);
+    towerMeshes.push(mesh);
+  }
+
   const enemyGeo = new CapsuleGeometry(
     R3.capsuleEnemyRadius,
     R3.capsuleEnemyLength,
@@ -238,6 +254,7 @@ export function createSceneGraph() {
     baseMesh,
     basePulseLight,
     playerMesh,
+    towerMeshes,
     enemyGeo,
     enemyMat,
     enemyMeshes,
@@ -379,6 +396,21 @@ function syncPlayer(graph, state, cameraScroll, viewportWidth, viewportHeight) {
     viewportWidth,
     viewportHeight,
   );
+}
+
+function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
+  const r = pxToWorld(CONFIG.TOWER.radius);
+
+  for (let i = 0; i < state.towers.length; i += 1) {
+    const tower = state.towers[i];
+    const mesh = graph.towerMeshes[i];
+    if (!mesh) continue;
+
+    const view = entityViewPos(tower, cameraScroll);
+    const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
+    mesh.position.set(pos.x, r * 0.85, pos.z);
+    mesh.scale.set(r, r * 1.35, r);
+  }
 }
 
 function syncEnemies(graph, state, cameraScroll, viewportWidth, viewportHeight) {

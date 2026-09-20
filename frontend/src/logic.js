@@ -66,6 +66,32 @@ function baseCastlePosition(worldWidth, viewportHeight, wallY) {
   };
 }
 
+function buildTowersAroundBase(base) {
+  const { count, orbitRadius, arcStartRad, arcEndRad } = CONFIG.TOWER;
+  const towers = [];
+
+  for (let i = 0; i < count; i += 1) {
+    const t = count === 1 ? 0.5 : i / (count - 1);
+    const angle = arcStartRad + (arcEndRad - arcStartRad) * t;
+    towers.push({
+      id: i,
+      x: base.x + Math.cos(angle) * orbitRadius,
+      y: base.y + Math.sin(angle) * orbitRadius,
+      fireCooldownRemaining: 0,
+    });
+  }
+
+  return towers;
+}
+
+function syncTowerPositions(state) {
+  const layout = buildTowersAroundBase(state.base);
+  for (let i = 0; i < state.towers.length; i += 1) {
+    state.towers[i].x = layout[i].x;
+    state.towers[i].y = layout[i].y;
+  }
+}
+
 function playerStartPosition(worldWidth, wallY) {
   return {
     x: worldWidth / 2,
@@ -137,6 +163,7 @@ export function createGameState(viewportWidth, viewportHeight) {
     playAreaRight: worldWidth,
     time: 0,
     gameOver: false,
+    towers: buildTowersAroundBase(base),
   };
 
   syncPlayArea(gameState, viewportWidth);
@@ -180,6 +207,7 @@ export function resizeGameState(state, viewportWidth, viewportHeight) {
   state.worldHeight = worldHeight;
 
   syncPlayArea(state, viewportWidth);
+  syncTowerPositions(state);
   clampPlayerToWorld(state);
   clampEnemyPositions(state);
 }
@@ -206,6 +234,7 @@ export function updateGameState(state, deltaSeconds, movement) {
   resolveEnemyWallBreaches(state);
   resolveEnemyPlayerContact(state, deltaSeconds);
   updateAutoCombat(state, deltaSeconds);
+  updateTowerCombat(state, deltaSeconds);
   updateBullets(state, deltaSeconds);
   markGameOverIfBaseDestroyed(state);
 }
@@ -341,18 +370,26 @@ function updateAutoCombat(state, deltaSeconds) {
   const aim = findAutoAimTarget(state);
   if (!aim || state.player.fireCooldownRemaining > 0) return;
 
-  spawnBullet(state, aim.aimX, aim.aimY);
+  spawnPlayerBullet(state, aim.aimX, aim.aimY);
   state.player.fireCooldownRemaining = getEffectiveFireCooldownSeconds(state);
 }
 
 function findAutoAimTarget(state) {
-  const autoAimRange = getEffectiveAutoAimRange(state);
-  let bestDist = autoAimRange;
+  return findAutoAimTargetFrom(
+    state.player.x,
+    state.player.y,
+    getEffectiveAutoAimRange(state),
+    state.enemies,
+  );
+}
+
+function findAutoAimTargetFrom(originX, originY, range, enemies) {
+  let bestDist = range;
   let bestEnemy = null;
 
-  for (const enemy of state.enemies) {
-    const dx = enemy.x - state.player.x;
-    const dy = enemy.y - state.player.y;
+  for (const enemy of enemies) {
+    const dx = enemy.x - originX;
+    const dy = enemy.y - originY;
     const dist = Math.hypot(dx, dy);
     if (dist < bestDist) {
       bestDist = dist;
@@ -362,31 +399,61 @@ function findAutoAimTarget(state) {
 
   if (!bestEnemy) return null;
 
-  const dx = bestEnemy.x - state.player.x;
-  const dy = bestEnemy.y - state.player.y;
+  const dx = bestEnemy.x - originX;
+  const dy = bestEnemy.y - originY;
   const len = Math.hypot(dx, dy);
   if (len < 0.001) return null;
 
   return { aimX: dx / len, aimY: dy / len };
 }
 
-function spawnBullet(state, aimX, aimY) {
-  const { radius } = CONFIG.PLAYER;
+function spawnBullet(state, originX, originY, originRadius, aimX, aimY, damage) {
   const { radius: bulletRadius } = CONFIG.BULLET;
-  const spawnOffset = radius + bulletRadius + 2;
+  const spawnOffset = originRadius + bulletRadius + 2;
 
   state.bullets.push({
     id: nextBulletId++,
-    x: state.player.x + aimX * spawnOffset,
-    y: state.player.y + aimY * spawnOffset,
+    x: originX + aimX * spawnOffset,
+    y: originY + aimY * spawnOffset,
     vx: aimX,
     vy: aimY,
+    damage,
   });
+}
+
+function spawnPlayerBullet(state, aimX, aimY) {
+  spawnBullet(
+    state,
+    state.player.x,
+    state.player.y,
+    CONFIG.PLAYER.radius,
+    aimX,
+    aimY,
+    getEffectiveBulletDamage(state),
+  );
+}
+
+function updateTowerCombat(state, deltaSeconds) {
+  const { range, fireCooldownSeconds, damage, radius } = CONFIG.TOWER;
+
+  for (const tower of state.towers) {
+    tower.fireCooldownRemaining = Math.max(
+      0,
+      tower.fireCooldownRemaining - deltaSeconds,
+    );
+    if (tower.fireCooldownRemaining > 0) continue;
+
+    const aim = findAutoAimTargetFrom(tower.x, tower.y, range, state.enemies);
+    if (!aim) continue;
+
+    spawnBullet(state, tower.x, tower.y, radius, aim.aimX, aim.aimY, damage);
+    tower.fireCooldownRemaining = fireCooldownSeconds;
+  }
 }
 
 function updateBullets(state, deltaSeconds) {
   const { speed, cullMargin, radius: bulletRadius } = CONFIG.BULLET;
-  const damage = getEffectiveBulletDamage(state);
+  const playerDamage = getEffectiveBulletDamage(state);
   const maxX = state.worldWidth + cullMargin;
   const maxY = state.worldHeight + cullMargin;
   const min = -cullMargin;
@@ -414,7 +481,7 @@ function updateBullets(state, deltaSeconds) {
           enemyRadius,
         )
       ) {
-        enemy.hp -= damage;
+        enemy.hp -= bullet.damage ?? playerDamage;
         consumed = true;
         break;
       }
