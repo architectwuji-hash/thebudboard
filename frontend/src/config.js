@@ -57,10 +57,11 @@ export const CONFIG = {
     count: 5,
     /** Outside the base sphere (BASE.radius 45 + tower radius + margin). */
     orbitRadius: 96,
+    orbitMarginFromBase: 18,
     /** Arc above the base (radians; −π/2 points toward top of screen). */
     arcStartRad: -2.75,
     arcEndRad: -0.39,
-    radius: 11,
+    radius: 14,
     range: 340,
     fireCooldownSeconds: 0.5,
     damage: 24,
@@ -171,7 +172,7 @@ export const CONFIG = {
     enemyInstancedThreshold: 10,
     towerColor: 0x374151,
     towerEmissive: 0x1f2937,
-    towerEmissiveIntensity: 0.2,
+    towerEmissiveIntensity: 0.5,
   },
 
   CANVAS: {

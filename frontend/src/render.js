@@ -180,6 +180,7 @@ export function createSceneGraph() {
   for (let i = 0; i < CONFIG.TOWER.count; i += 1) {
     const mesh = new THREE.Mesh(towerGeo, towerMat);
     mesh.castShadow = true;
+    mesh.visible = false;
     scene.add(mesh);
     towerMeshes.push(mesh);
   }
@@ -408,8 +409,9 @@ function syncTowers(graph, state, cameraScroll, viewportWidth, viewportHeight) {
 
     const view = entityViewPos(tower, cameraScroll);
     const pos = viewToWorld(view.x, view.y, viewportWidth, viewportHeight);
+    mesh.visible = true;
     mesh.position.set(pos.x, r * 0.85, pos.z);
-    mesh.scale.set(r, r * 1.35, r);
+    mesh.scale.set(r, r * 1.55, r);
   }
 }
 

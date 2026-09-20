@@ -66,8 +66,15 @@ function baseCastlePosition(worldWidth, viewportHeight, wallY) {
   };
 }
 
+function towerOrbitRadiusPx() {
+  const { orbitRadius, radius, orbitMarginFromBase } = CONFIG.TOWER;
+  const minOrbit = CONFIG.BASE.radius + radius + orbitMarginFromBase;
+  return Math.max(orbitRadius, minOrbit);
+}
+
 function buildTowersAroundBase(base) {
-  const { count, orbitRadius, arcStartRad, arcEndRad } = CONFIG.TOWER;
+  const { count, arcStartRad, arcEndRad } = CONFIG.TOWER;
+  const orbit = towerOrbitRadiusPx();
   const towers = [];
 
   for (let i = 0; i < count; i += 1) {
@@ -75,8 +82,8 @@ function buildTowersAroundBase(base) {
     const angle = arcStartRad + (arcEndRad - arcStartRad) * t;
     towers.push({
       id: i,
-      x: base.x + Math.cos(angle) * orbitRadius,
-      y: base.y + Math.sin(angle) * orbitRadius,
+      x: base.x + Math.cos(angle) * orbit,
+      y: base.y + Math.sin(angle) * orbit,
       fireCooldownRemaining: 0,
     });
   }
