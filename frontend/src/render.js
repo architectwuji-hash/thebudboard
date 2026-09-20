@@ -35,8 +35,10 @@ export function createRenderer(canvas) {
     alpha: false,
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = R3.enableShadows;
+  if (R3.enableShadows) {
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = R3.toneMappingExposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -60,9 +62,18 @@ export function createSceneGraph() {
     R3.keyLightIntensity,
   );
   keyLight.position.set(10, 22, 8);
-  keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.castShadow = R3.enableShadows;
+  if (R3.enableShadows) {
+    keyLight.shadow.mapSize.set(1024, 1024);
+  }
   scene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(
+    R3.fillLightColor,
+    R3.fillLightIntensity,
+  );
+  fillLight.position.set(0, 28, 18);
+  scene.add(fillLight);
 
   const rimLight = new THREE.DirectionalLight(
     R3.rimLightColor,
@@ -81,8 +92,10 @@ export function createSceneGraph() {
 
   const floorMat = new THREE.MeshStandardMaterial({
     color: R3.floorColor,
-    roughness: 0.92,
-    metalness: 0.04,
+    emissive: R3.floorEmissive,
+    emissiveIntensity: R3.floorEmissiveIntensity,
+    roughness: 0.78,
+    metalness: 0.06,
   });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), floorMat);
   floor.rotation.x = -Math.PI / 2;
@@ -91,8 +104,10 @@ export function createSceneGraph() {
 
   const gutterMat = new THREE.MeshStandardMaterial({
     color: R3.gutterColor,
-    roughness: 0.95,
-    metalness: 0.02,
+    emissive: R3.gutterColor,
+    emissiveIntensity: 0.2,
+    roughness: 0.85,
+    metalness: 0.04,
   });
   const leftGutter = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), gutterMat);
   const rightGutter = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), gutterMat);
@@ -102,8 +117,10 @@ export function createSceneGraph() {
 
   const protectedMat = new THREE.MeshStandardMaterial({
     color: R3.protectedColor,
-    roughness: 0.9,
-    metalness: 0.03,
+    emissive: R3.protectedColor,
+    emissiveIntensity: 0.25,
+    roughness: 0.82,
+    metalness: 0.05,
   });
   const protectedZone = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), protectedMat);
   protectedZone.rotation.x = -Math.PI / 2;
