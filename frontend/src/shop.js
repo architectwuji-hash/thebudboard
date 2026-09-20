@@ -32,8 +32,7 @@ export function createInitialUpgrades() {
     playerDamage: 0,
     soldierHealth: 0,
     soldierDamage: 0,
-    /** One starter turret visible; buy Unlock Tower for slots 2–5. */
-    unlockedTowerCount: 1,
+    unlockedTowerCount: 0,
     towerDamage: 0,
   };
 }
